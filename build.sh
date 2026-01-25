@@ -45,7 +45,7 @@ select opt in "${options[@]}"; do
 		echo "You selected: $opt"
 		echo "你选择了: $opt"
 
-		src_dir="example/$opt"
+		src_dir="$opt"
 		if [[ -d "$src_dir" ]]; then
 			if [ -d ${ROOT_PWD}/build ]; then
 				rm -rf ${ROOT_PWD}/build
