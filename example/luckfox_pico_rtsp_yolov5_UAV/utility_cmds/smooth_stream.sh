@@ -1,0 +1,1 @@
+ffplay -fflags nobuffer -flags low_delay -framedrop -infbuf -rtsp_transport udp rtsp://172.32.0.93/live/0
