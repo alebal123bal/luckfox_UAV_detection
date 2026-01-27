@@ -53,7 +53,7 @@ select opt in "${options[@]}"; do
 			mkdir ${ROOT_PWD}/build
 			cd ${ROOT_PWD}/build
 			cmake .. -DEXAMPLE_DIR="$src_dir" -DEXAMPLE_NAME="$opt" -DLIBC_TYPE="$libc_type"
-			make install
+			make VERBOSE=1 install
 		else
 			echo "错误：目录 $src_dir 不存在！"
 			echo "Error: Directory $src_dir does not exist!"
