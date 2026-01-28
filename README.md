@@ -97,13 +97,6 @@ https://github.com/airockchip/yolov5.git
 
 and train from there.
 
-### Dataset Details
-
-- **Dataset Source**: [TO BE ADDED - specific dataset name/URL]
-- **Classes**: [TO BE ADDED]
-- **Training Samples**: [TO BE ADDED]
-- **Validation**: [TO BE ADDED]
-
 ### Model Conversion
 
 The already converted RKNN model is provided.
