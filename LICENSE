@@ -1,0 +1,101 @@
+MIT License
+
+Copyright (c) 2026 [Your Name/Organization]
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+-------------------------------------------------------------------------------
+
+ADDITIONAL TERMS AND CONDITIONS FOR UAV DETECTION SOFTWARE
+
+This software is intended for EDUCATIONAL AND RESEARCH PURPOSES ONLY.
+
+1. LEGAL COMPLIANCE
+   Users of this software must ensure compliance with all applicable local,
+   state, federal, and international laws, including but not limited to:
+   - Privacy and surveillance laws
+   - Aviation and airspace regulations
+   - Data protection regulations (GDPR, CCPA, etc.)
+   - Export control regulations
+
+2. PROHIBITED USES
+   This software shall not be used for:
+   - Illegal surveillance or privacy violations
+   - Unauthorized tracking of aircraft or persons
+   - Any activity that violates applicable laws or regulations
+   - Military or offensive applications without proper authorization
+
+3. LIABILITY LIMITATION
+   The authors, contributors, and copyright holders:
+   - Assume NO LIABILITY for misuse of this software
+   - Are NOT RESPONSIBLE for any legal consequences arising from use
+   - Do NOT ENDORSE any particular use case or application
+   - Provide NO WARRANTY regarding legal compliance
+   - Accept NO RESPONSIBILITY for damages, direct or indirect
+
+4. USER RESPONSIBILITY
+   By using this software, you acknowledge and agree that:
+   - You are solely responsible for ensuring lawful use
+   - You will obtain all necessary permissions and licenses
+   - You will consult legal counsel regarding applicable laws
+   - You accept full liability for your use of this software
+
+5. ATTRIBUTION
+   Any use, modification, or distribution must maintain:
+   - This license and all disclaimers
+   - Attribution to original authors
+   - Citation of datasets used (Dataset Ninja, etc.)
+
+6. NO ENDORSEMENT
+   Use of this software does not imply endorsement by:
+   - The original authors or contributors
+   - Dataset providers (Dataset Ninja, etc.)
+   - Hardware manufacturers (Rockchip, Luckfox, etc.)
+   - Software framework developers (Ultralytics, etc.)
+
+-------------------------------------------------------------------------------
+
+THIRD-PARTY COMPONENTS
+
+This software incorporates or depends upon third-party components:
+
+1. YOLOv5 by Ultralytics (GPL-3.0 License)
+2. RKNN Toolkit by Rockchip (proprietary)
+3. Rockchip MPP (Apache 2.0 License)
+4. Dataset from Dataset Ninja (check dataset-specific license)
+5. FFmpeg libraries (LGPL/GPL depending on build)
+
+Users must comply with all applicable third-party licenses.
+
+-------------------------------------------------------------------------------
+
+EXPORT CONTROL
+
+This software may be subject to export control regulations. Users are
+responsible for compliance with:
+- U.S. Export Administration Regulations (EAR)
+- International Traffic in Arms Regulations (ITAR)
+- EU Dual-Use Regulation
+- Other applicable export control laws
+
+-------------------------------------------------------------------------------
+
+By using, copying, modifying, or distributing this software, you acknowledge
+that you have read this license, understand it, and agree to be bound by its
+terms and conditions.
