@@ -107,6 +107,7 @@ https://wiki.luckfox.com/Luckfox-Pico-Pro-Max/RKNN
 
 or contact me directly:
 balzanalessandro2001@gmail.com
+
 https://www.linkedin.com/in/alessandro-balzan-b024a9250/
 
 ## Project Structure
@@ -205,6 +206,7 @@ Users must ensure their use complies with all applicable laws and regulations.
 ## Contact
 
 balzanalessandro2001@gmail.com
+
 https://www.linkedin.com/in/alessandro-balzan-b024a9250/
 
 ---
