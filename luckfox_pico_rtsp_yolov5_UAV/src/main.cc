@@ -39,6 +39,13 @@ int topPadding  ;
 // Serial terminal
 int serial_port_num = 3; // UART3
 
+// Profiling
+static inline long long now_us() {
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return (long long)tv.tv_sec * 1000000 + tv.tv_usec;
+}
+
 cv::Mat letterbox(cv::Mat input)
 {
 	float scaleX = (float)model_width  / (float)width; 
@@ -193,6 +200,10 @@ int main(int argc, char *argv[]) {
     }
     printf("\rtx_buffer: \n %s ", tx_buffer);
 
+
+	// Profiling
+	long long t0, t1, t2, t3, t4, t5, t6;
+
   	while(1)
 	{	
 		// get vi frame
@@ -203,16 +214,23 @@ int main(int argc, char *argv[]) {
 		{
 			void *vi_data = RK_MPI_MB_Handle2VirAddr(stViFrame.stVFrame.pMbBlk);	
 
+			t0 = now_us();
 			cv::Mat yuv420sp(height + height / 2, width, CV_8UC1, vi_data);
 			cv::Mat bgr(height, width, CV_8UC3, data);			
 			
+			t1 = now_us();
 			cv::cvtColor(yuv420sp, bgr, cv::COLOR_YUV420sp2BGR);
+			t2 = now_us();
 			cv::resize(bgr, frame, cv::Size(width ,height), 0, 0, cv::INTER_LINEAR);
-			
+			t3 = now_us();
+
 			//letterbox
 			cv::Mat letterboxImage = letterbox(frame);	
+			t4 = now_us();
 			memcpy(rknn_app_ctx.input_mems[0]->virt_addr, letterboxImage.data, model_width*model_height*3);		
+			
 			inference_yolov5_model(&rknn_app_ctx, &od_results);
+			t5 = now_us();
 
 			for(int i = 0; i < od_results.count; i++)
 			{					
@@ -243,7 +261,16 @@ int main(int argc, char *argv[]) {
 				}
 			}
 
+			t6 = now_us();
+
+			printf("YUV2BGR=%lld ms | Resize=%lld ms | Letterbox=%lld ms | NPU=%lld ms | Post=%lld ms\n",
+				(t2 - t1)/1000,
+				(t3 - t2)/1000,
+				(t4 - t3)/1000,
+				(t5 - t4)/1000,
+				(t6 - t5)/1000);
 		}
+		
 		memcpy(data, frame.data, width * height * 3);					
 		
 		// encode H264
