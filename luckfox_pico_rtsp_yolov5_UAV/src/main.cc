@@ -18,7 +18,7 @@
 #include "luckfox_mpi.h"
 #include "yolov5.h"
 #include "uart_comm.h"
-// #include "rga_hw_accel.h"
+#include "rga_hw_accel.h"
 
 #include "im2d.hpp"
 #include "RgaUtils.h"
@@ -59,108 +59,6 @@ void mapCoordinates(int *x, int *y) {
     *x = (int)((float)mx / scale);
     *y = (int)((float)my / scale);
 }
-
-void draw_box_rga(void* buf, int w, int h,
-                  int x, int y, int box_w, int box_h,
-                  uint32_t color_rgb)
-{
-    rga_buffer_t img = wrapbuffer_virtualaddr(buf, w, h, RK_FORMAT_RGB_888);
-
-    // Top border
-    im_rect t = {x, y, box_w, 2};
-    imfill(img, t, color_rgb);
-
-    // Bottom
-    im_rect b = {x, y + box_h - 2, box_w, 2};
-    imfill(img, b, color_rgb);
-
-    // Left
-    im_rect l = {x, y, 2, box_h};
-    imfill(img, l, color_rgb);
-
-    // Right
-    im_rect r = {x + box_w - 2, y, 2, box_h};
-    imfill(img, r, color_rgb);
-}
-
-void clear_frame(void* buf, int w, int h)
-{
-    rga_buffer_t img = wrapbuffer_virtualaddr(buf, w, h, RK_FORMAT_RGB_888);
-    im_rect rect = {0, 0, w, h};
-    imfill(img, rect, 0x000000); // black
-}
-
-// Direct NV12 → RGB888 → Resize → Letterbox → RKNN DMA input
-void rga_letterbox_nv12_to_rknn(
-    void* nv12_ptr,
-    int src_w, int src_h,
-    rknn_app_context_t* ctx,
-    int dst_w, int dst_h
-){
-    // -------------------------------------------------
-    // 1. Compute scale + padding (GLOBAL VARIABLES)
-    // -------------------------------------------------
-    float scaleX = (float)dst_w / src_w;
-    float scaleY = (float)dst_h / src_h;
-    scale = (scaleX < scaleY) ? scaleX : scaleY;
-
-    int new_w = src_w * scale;
-    int new_h = src_h * scale;
-
-    leftPadding = (dst_w - new_w) / 2;
-    topPadding  = (dst_h - new_h) / 2;
-
-    // -------------------------------------------------
-    // 2. Setup RKNN output buffer
-    // -------------------------------------------------
-    rknn_tensor_mem* dst_mem = ctx->input_mems[0];
-    uint8_t* out_ptr = (uint8_t*)dst_mem->virt_addr;
-
-    int dst_stride = dst_w * 3; // RGB88824bpp
-
-    // -------------------------------------------------
-    // 3. Source NV12
-    // -------------------------------------------------
-    rga_buffer_t src = wrapbuffer_virtualaddr(
-        nv12_ptr,
-        src_w,
-        src_h,
-        RK_FORMAT_YCbCr_420_SP
-    );
-
-    // -------------------------------------------------
-    // 4. Destination FULL padded RGB
-    // -------------------------------------------------
-    rga_buffer_t dst_full = wrapbuffer_virtualaddr(
-        out_ptr,
-        dst_w,
-        dst_h,
-        RK_FORMAT_RGB_888
-    );
-
-    // -------------------------------------------------
-    // 5. Clear the tensor (letterbox padding)
-    // -------------------------------------------------
-    im_rect full_rect = {0, 0, dst_w, dst_h};
-    imfill(dst_full, full_rect, 0x000000);
-
-    // -------------------------------------------------
-    // 6. Sub-rectangle for scaled region
-    // -------------------------------------------------
-    rga_buffer_t dst_sub = wrapbuffer_virtualaddr(
-        out_ptr + topPadding * dst_stride + leftPadding * 3,
-        new_w,
-        new_h,
-        RK_FORMAT_RGB_888
-    );
-
-    // -------------------------------------------------
-    // 7. NV12 → RGB + resize into padded area
-    // -------------------------------------------------
-    imresize(src, dst_sub);
-}
-
-
 
 int main(int argc, char *argv[]) {
     system("RkLunch-stop.sh");
@@ -277,7 +175,8 @@ int main(int argc, char *argv[]) {
 		rga_letterbox_nv12_to_rknn(
 			vi_data, width, height,
 			&rknn_app_ctx,
-			640, 640
+			640, 640,
+			&scale, &leftPadding, &topPadding
 		);
 
 		t1 = now_us();
