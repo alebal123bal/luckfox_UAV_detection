@@ -24,10 +24,6 @@
 #include "RgaUtils.h"
 #include "im2d_common.h"
 
-#include "opencv2/core/core.hpp"
-#include "opencv2/highgui/highgui.hpp"
-#include "opencv2/imgproc/imgproc.hpp"
-
 #define DISP_WIDTH  720
 #define DISP_HEIGHT 480
 
@@ -109,10 +105,6 @@ int main(int argc, char *argv[]) {
 	h264_frame.stVFrame.u32FrameFlag = 160;
 	h264_frame.stVFrame.pMbBlk = src_Blk;
 	unsigned char *data = (unsigned char *)RK_MPI_MB_Handle2VirAddr(src_Blk);
-	// Use memory safe operations
-	cv::Mat frame_dma(height, width, CV_8UC3, data);
-	cv::Mat frame;
-	frame_dma.copyTo(frame);
 
 	// rkaiq init
 	RK_BOOL multi_sensor = RK_FALSE;	
