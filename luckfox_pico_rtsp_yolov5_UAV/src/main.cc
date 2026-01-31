@@ -17,6 +17,7 @@
 #include "rtsp_demo.h"
 #include "luckfox_mpi.h"
 #include "yolov5.h"
+#include "uart_comm.h"
 
 #include "opencv2/core/core.hpp"
 #include "opencv2/highgui/highgui.hpp"
@@ -29,15 +30,15 @@
 int width    = DISP_WIDTH;
 int height   = DISP_HEIGHT;
 
+// Serial terminal
+#define SERIAL_PORT_NUM 3  // UART3
+
 // model size
 int model_width = 640;
 int model_height = 640;	
 float scale ;
 int leftPadding ;
 int topPadding  ;
-
-// Serial terminal
-int serial_port_num = 3; // UART3
 
 // Profiling
 static inline long long now_us() {
@@ -158,47 +159,13 @@ int main(int argc, char *argv[]) {
 	printf("venc init success\n");	
 
 	// Init serial port
-    char serial_port[15];
-	int serial_fd;
-
-	sprintf(serial_port,"/dev/ttyS%d",serial_port_num);
-
-	serial_fd = open(serial_port, O_RDWR | O_NOCTTY);
-	if (serial_fd == -1) {
-		perror("Failed to open serial port");
+	int serial_fd = uart_init(SERIAL_PORT_NUM, 115200);
+	if (serial_fd < 0) {
 		return 1;
 	}
 
-	// Configure serial port
-    struct termios tty;
-    memset(&tty, 0, sizeof(tty));
-
-    if (tcgetattr(serial_fd, &tty) != 0) {
-        perror("Error from tcgetattr");
-        return 1;
-    }
-
-	cfsetospeed(&tty, B115200);	// Set baud rate to 115200 (output)
-	cfsetispeed(&tty, B115200);	// Set baud rate to 115200 (input)
-
-	tty.c_cflag &= ~PARENB;		// No parity bit
-	tty.c_cflag &= ~CSTOPB;		// One stop bit
-	tty.c_cflag &= ~CSIZE;		// Clear current data size setting
-	tty.c_cflag |= CS8;			// 8 data bits
-
-	if (tcsetattr(serial_fd, TCSANOW, &tty) != 0) {
-		perror("Error from tcsetattr");
-		return 1;
-	}
-
-    char tx_buffer[] = "Hello world!\n";
-    ssize_t bytes_written = write(serial_fd, tx_buffer, sizeof(tx_buffer));
-    if (bytes_written < 0) {
-        perror("Error writing to serial port");
-        close(serial_fd);
-        return 1;
-    }
-    printf("\rtx_buffer: \n %s ", tx_buffer);
+	// Test UART connection
+	uart_printf(serial_fd, "Hello world!\n");
 
 
 	// Profiling
@@ -322,6 +289,9 @@ int main(int argc, char *argv[]) {
 		rtsp_del_demo(g_rtsplive);
 	
 	RK_MPI_SYS_Exit();
+
+	// Close UART
+	uart_close(serial_fd);
 
 	// Release rknn model
     release_yolov5_model(&rknn_app_ctx);		
