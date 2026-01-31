@@ -58,7 +58,8 @@ find_package(Threads REQUIRED)
 
 set(SRC_DIR "${EXAMPLE_DIR}/src")
 file(GLOB SRC_FILES "${SRC_DIR}/*.cc")
-add_executable(${PROJECT_NAME} ${SRC_FILES})
+file(GLOB DMA_ALLOC_SRC "${EXAMPLE_DIR}/3rdparty/allocator/dma/*.cpp")
+add_executable(${PROJECT_NAME} ${SRC_FILES} ${DMA_ALLOC_SRC})
 
 add_compile_options(-g -Wall
                     -DISP_HW_V30 -DRKPLATFORM=ON -DARCH64=OFF
@@ -106,6 +107,7 @@ endif()
 target_include_directories(${PROJECT_NAME} PRIVATE                        
                             ${OpenCV_INCLUDE_DIRS}
                             ${EXAMPLE_DIR}/include
+                            ${EXAMPLE_DIR}/3rdparty/allocator/dma
                             ${CMAKE_CURRENT_SOURCE_DIR}
                             ${CMAKE_CURRENT_SOURCE_DIR}/utils
                             ${CMAKE_CURRENT_SOURCE_DIR}/common 
