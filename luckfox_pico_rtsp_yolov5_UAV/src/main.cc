@@ -18,6 +18,7 @@
 #include "luckfox_mpi.h"
 #include "yolov5.h"
 #include "uart_comm.h"
+#include "rga_hw_accel.h"
 
 #include "opencv2/core/core.hpp"
 #include "opencv2/highgui/highgui.hpp"
@@ -61,7 +62,8 @@ cv::Mat letterbox(cv::Mat input)
 	
 
 	cv::Mat inputScale;
-    cv::resize(input, inputScale, cv::Size(inputWidth,inputHeight), 0, 0, cv::INTER_LINEAR);	
+    // cv::resize(input, inputScale, cv::Size(inputWidth,inputHeight), 0, 0, cv::INTER_LINEAR);	
+	rga_resize(input, inputScale, inputWidth, inputHeight);
 	cv::Mat letterboxImage(640, 640, CV_8UC3,cv::Scalar(0, 0, 0));
     cv::Rect roi(leftPadding, topPadding, inputWidth, inputHeight);
     inputScale.copyTo(letterboxImage(roi));
@@ -124,7 +126,10 @@ int main(int argc, char *argv[]) {
 	h264_frame.stVFrame.u32FrameFlag = 160;
 	h264_frame.stVFrame.pMbBlk = src_Blk;
 	unsigned char *data = (unsigned char *)RK_MPI_MB_Handle2VirAddr(src_Blk);
-	cv::Mat frame(cv::Size(width,height),CV_8UC3,data);
+	// Use memory safe operations
+	cv::Mat frame_dma(height, width, CV_8UC3, data);
+	cv::Mat frame;
+	frame_dma.copyTo(frame);
 
 	// rkaiq init
 	RK_BOOL multi_sensor = RK_FALSE;	
@@ -183,7 +188,10 @@ int main(int argc, char *argv[]) {
 
 			t0 = now_us();
 			cv::Mat yuv420sp(height + height / 2, width, CV_8UC1, vi_data);
-			cv::Mat bgr(height, width, CV_8UC3, data);			
+			// Use memory safe operations
+			cv::Mat bgr_dma(height, width, CV_8UC3, data);
+			cv::Mat bgr;
+			bgr_dma.copyTo(bgr);
 			
 			t1 = now_us();
 			cv::cvtColor(yuv420sp, bgr, cv::COLOR_YUV420sp2BGR);
