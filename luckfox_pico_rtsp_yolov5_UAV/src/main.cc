@@ -260,17 +260,8 @@ int main(int argc, char *argv[]) {
 										   cv::Scalar(0,255,0),2);
 				}
 			}
-
-			t6 = now_us();
-
-			printf("YUV2BGR=%lld ms | Resize=%lld ms | Letterbox=%lld ms | NPU=%lld ms | Post=%lld ms\n",
-				(t2 - t1)/1000,
-				(t3 - t2)/1000,
-				(t4 - t3)/1000,
-				(t5 - t4)/1000,
-				(t6 - t5)/1000);
 		}
-		
+
 		memcpy(data, frame.data, width * height * 3);					
 		
 		// encode H264
@@ -300,6 +291,15 @@ int main(int argc, char *argv[]) {
 			RK_LOGE("RK_MPI_VENC_ReleaseStream fail %x", s32Ret);
 		}
 		memset(text,0,8);
+
+		t6 = now_us();
+
+		printf("YUV2BGR=%lld ms | Resize=%lld ms | Letterbox=%lld ms | NPU=%lld ms | Post=%lld ms\n",
+			(t2 - t1)/1000,
+			(t3 - t2)/1000,
+			(t4 - t3)/1000,
+			(t5 - t4)/1000,
+			(t6 - t5)/1000);
 	}
 
 
