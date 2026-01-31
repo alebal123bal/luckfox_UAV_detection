@@ -81,24 +81,24 @@ void rga_resize(const cv::Mat& src, cv::Mat& dst, int dst_w, int dst_h)
 
 void draw_box_rga(void* buf, int w, int h,
                   int x, int y, int box_w, int box_h,
-                  uint32_t color_rgb)
+                  uint32_t color_rgb, int thickness)
 {
     rga_buffer_t img = wrapbuffer_virtualaddr(buf, w, h, RK_FORMAT_RGB_888);
 
     // Top border
-    im_rect t = {x, y, box_w, 2};
+    im_rect t = {x, y, box_w, thickness};
     imfill(img, t, color_rgb);
 
     // Bottom
-    im_rect b = {x, y + box_h - 2, box_w, 2};
+    im_rect b = {x, y + box_h - thickness, box_w, thickness};
     imfill(img, b, color_rgb);
 
     // Left
-    im_rect l = {x, y, 2, box_h};
+    im_rect l = {x, y, thickness, box_h};
     imfill(img, l, color_rgb);
 
     // Right
-    im_rect r = {x + box_w - 2, y, 2, box_h};
+    im_rect r = {x + box_w - thickness, y, thickness, box_h};
     imfill(img, r, color_rgb);
 }
 

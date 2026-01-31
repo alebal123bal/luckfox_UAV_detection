@@ -38,6 +38,9 @@ int height   = DISP_HEIGHT;
 // Serial terminal
 #define SERIAL_PORT_NUM 3  // UART3
 
+// Box thickness
+#define BOX_THICKNESS 4
+
 // model size
 int model_width = 640;
 int model_height = 640;	
@@ -225,7 +228,7 @@ int main(int argc, char *argv[]) {
 			draw_box_rga(data, width, height,
 						sX, sY,
 						eX - sX, eY - sY,
-						0x00FF00);   // GREEN
+						0x00FF00, BOX_THICKNESS);   // GREEN
 		}
 
 		// -----------------------------

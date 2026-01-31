@@ -52,10 +52,11 @@ void rga_letterbox_nv12_to_rknn(
  * @param box_w Box width
  * @param box_h Box height
  * @param color_rgb RGB color (0xRRGGBB format)
+ * @param thickness Line thickness in pixels (default 2)
  */
 void draw_box_rga(void* buf, int w, int h,
                   int x, int y, int box_w, int box_h,
-                  uint32_t color_rgb);
+                  uint32_t color_rgb, int thickness = 3);
 
 /**
  * @brief Clear frame buffer to black using RGA
