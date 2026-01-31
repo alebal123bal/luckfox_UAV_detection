@@ -12,6 +12,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <vector>
+#include <termios.h>
 
 #include "rtsp_demo.h"
 #include "luckfox_mpi.h"
@@ -34,6 +35,9 @@ int model_height = 640;
 float scale ;
 int leftPadding ;
 int topPadding  ;
+
+// Serial terminal
+int serial_port_num = 3; // UART3
 
 cv::Mat letterbox(cv::Mat input)
 {
@@ -67,7 +71,7 @@ void mapCoordinates(int *x, int *y) {
 
 
 int main(int argc, char *argv[]) {
-  system("RkLunch-stop.sh");
+    system("RkLunch-stop.sh");
 	RK_S32 s32Ret = 0; 
 	int sX,sY,eX,eY; 
 		
@@ -145,7 +149,50 @@ int main(int argc, char *argv[]) {
 	venc_init(0, width, height, enCodecType);
 
 	printf("venc init success\n");	
-	
+
+	// Init serial port
+    char serial_port[15];
+	int serial_fd;
+
+	sprintf(serial_port,"/dev/ttyS%d",serial_port_num);
+
+	serial_fd = open(serial_port, O_RDWR | O_NOCTTY);
+	if (serial_fd == -1) {
+		perror("Failed to open serial port");
+		return 1;
+	}
+
+	// Configure serial port
+    struct termios tty;
+    memset(&tty, 0, sizeof(tty));
+
+    if (tcgetattr(serial_fd, &tty) != 0) {
+        perror("Error from tcgetattr");
+        return 1;
+    }
+
+	cfsetospeed(&tty, B115200);	// Set baud rate to 115200 (output)
+	cfsetispeed(&tty, B115200);	// Set baud rate to 115200 (input)
+
+	tty.c_cflag &= ~PARENB;		// No parity bit
+	tty.c_cflag &= ~CSTOPB;		// One stop bit
+	tty.c_cflag &= ~CSIZE;		// Clear current data size setting
+	tty.c_cflag |= CS8;			// 8 data bits
+
+	if (tcsetattr(serial_fd, TCSANOW, &tty) != 0) {
+		perror("Error from tcsetattr");
+		return 1;
+	}
+
+    char tx_buffer[] = "Hello world!\n";
+    ssize_t bytes_written = write(serial_fd, tx_buffer, sizeof(tx_buffer));
+    if (bytes_written < 0) {
+        perror("Error writing to serial port");
+        close(serial_fd);
+        return 1;
+    }
+    printf("\rtx_buffer: \n %s ", tx_buffer);
+
   	while(1)
 	{	
 		// get vi frame
@@ -180,6 +227,9 @@ int main(int argc, char *argv[]) {
 					mapCoordinates(&sX,&sY);
 					mapCoordinates(&eX,&eY);
 					
+					// Print to UART terminal the detection result MAVLink compatible message
+
+
 					printf("%s @ (%d %d %d %d) %.3f\n", coco_cls_to_name(det_result->cls_id),
 							 sX, sY, eX, eY, det_result->prop);
 
