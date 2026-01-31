@@ -18,7 +18,11 @@
 #include "luckfox_mpi.h"
 #include "yolov5.h"
 #include "uart_comm.h"
-#include "rga_hw_accel.h"
+// #include "rga_hw_accel.h"
+
+#include "im2d.hpp"
+#include "RgaUtils.h"
+#include "im2d_common.h"
 
 #include "opencv2/core/core.hpp"
 #include "opencv2/highgui/highgui.hpp"
@@ -48,29 +52,6 @@ static inline long long now_us() {
     return (long long)tv.tv_sec * 1000000 + tv.tv_usec;
 }
 
-cv::Mat letterbox(cv::Mat input)
-{
-	float scaleX = (float)model_width  / (float)width; 
-	float scaleY = (float)model_height / (float)height; 
-	scale = scaleX < scaleY ? scaleX : scaleY;
-	
-	int inputWidth   = (int)((float)width * scale);
-	int inputHeight  = (int)((float)height * scale);
-
-	leftPadding = (model_width  - inputWidth) / 2;
-	topPadding  = (model_height - inputHeight) / 2;	
-	
-
-	cv::Mat inputScale;
-    // cv::resize(input, inputScale, cv::Size(inputWidth,inputHeight), 0, 0, cv::INTER_LINEAR);	
-	rga_resize(input, inputScale, inputWidth, inputHeight);
-	cv::Mat letterboxImage(640, 640, CV_8UC3,cv::Scalar(0, 0, 0));
-    cv::Rect roi(leftPadding, topPadding, inputWidth, inputHeight);
-    inputScale.copyTo(letterboxImage(roi));
-
-	return letterboxImage; 	
-}
-
 void mapCoordinates(int *x, int *y) {	
 	int mx = *x - leftPadding;
 	int my = *y - topPadding;
@@ -78,6 +59,107 @@ void mapCoordinates(int *x, int *y) {
     *x = (int)((float)mx / scale);
     *y = (int)((float)my / scale);
 }
+
+void draw_box_rga(void* buf, int w, int h,
+                  int x, int y, int box_w, int box_h,
+                  uint32_t color_rgb)
+{
+    rga_buffer_t img = wrapbuffer_virtualaddr(buf, w, h, RK_FORMAT_RGB_888);
+
+    // Top border
+    im_rect t = {x, y, box_w, 2};
+    imfill(img, t, color_rgb);
+
+    // Bottom
+    im_rect b = {x, y + box_h - 2, box_w, 2};
+    imfill(img, b, color_rgb);
+
+    // Left
+    im_rect l = {x, y, 2, box_h};
+    imfill(img, l, color_rgb);
+
+    // Right
+    im_rect r = {x + box_w - 2, y, 2, box_h};
+    imfill(img, r, color_rgb);
+}
+
+void clear_frame(void* buf, int w, int h)
+{
+    rga_buffer_t img = wrapbuffer_virtualaddr(buf, w, h, RK_FORMAT_RGB_888);
+    im_rect rect = {0, 0, w, h};
+    imfill(img, rect, 0x000000); // black
+}
+
+// Direct NV12 → RGB888 → Resize → Letterbox → RKNN DMA input
+void rga_letterbox_nv12_to_rknn(
+    void* nv12_ptr,
+    int src_w, int src_h,
+    rknn_app_context_t* ctx,
+    int dst_w, int dst_h
+){
+    // -------------------------------------------------
+    // 1. Compute scale + padding (GLOBAL VARIABLES)
+    // -------------------------------------------------
+    float scaleX = (float)dst_w / src_w;
+    float scaleY = (float)dst_h / src_h;
+    scale = (scaleX < scaleY) ? scaleX : scaleY;
+
+    int new_w = src_w * scale;
+    int new_h = src_h * scale;
+
+    leftPadding = (dst_w - new_w) / 2;
+    topPadding  = (dst_h - new_h) / 2;
+
+    // -------------------------------------------------
+    // 2. Setup RKNN output buffer
+    // -------------------------------------------------
+    rknn_tensor_mem* dst_mem = ctx->input_mems[0];
+    uint8_t* out_ptr = (uint8_t*)dst_mem->virt_addr;
+
+    int dst_stride = dst_w * 3; // RGB88824bpp
+
+    // -------------------------------------------------
+    // 3. Source NV12
+    // -------------------------------------------------
+    rga_buffer_t src = wrapbuffer_virtualaddr(
+        nv12_ptr,
+        src_w,
+        src_h,
+        RK_FORMAT_YCbCr_420_SP
+    );
+
+    // -------------------------------------------------
+    // 4. Destination FULL padded RGB
+    // -------------------------------------------------
+    rga_buffer_t dst_full = wrapbuffer_virtualaddr(
+        out_ptr,
+        dst_w,
+        dst_h,
+        RK_FORMAT_RGB_888
+    );
+
+    // -------------------------------------------------
+    // 5. Clear the tensor (letterbox padding)
+    // -------------------------------------------------
+    im_rect full_rect = {0, 0, dst_w, dst_h};
+    imfill(dst_full, full_rect, 0x000000);
+
+    // -------------------------------------------------
+    // 6. Sub-rectangle for scaled region
+    // -------------------------------------------------
+    rga_buffer_t dst_sub = wrapbuffer_virtualaddr(
+        out_ptr + topPadding * dst_stride + leftPadding * 3,
+        new_w,
+        new_h,
+        RK_FORMAT_RGB_888
+    );
+
+    // -------------------------------------------------
+    // 7. NV12 → RGB + resize into padded area
+    // -------------------------------------------------
+    imresize(src, dst_sub);
+}
+
 
 
 int main(int argc, char *argv[]) {
@@ -174,108 +256,117 @@ int main(int argc, char *argv[]) {
 
 
 	// Profiling
-	long long t0, t1, t2, t3, t4, t5, t6;
+	long long t0, t1, t2;
 
-  	while(1)
-	{	
-		// get vi frame
-		h264_frame.stVFrame.u32TimeRef = H264_TimeRef++;
-		h264_frame.stVFrame.u64PTS = TEST_COMM_GetNowUs(); 
+	while (1)
+	{
+		// -----------------------------
+		// 1. GET CAMERA FRAME (NV12)
+		// -----------------------------
 		s32Ret = RK_MPI_VI_GetChnFrame(0, 0, &stViFrame, 0);
-		if(s32Ret == RK_SUCCESS)
+		if (s32Ret != RK_SUCCESS) 
+			continue;
+
+		void* vi_data = RK_MPI_MB_Handle2VirAddr(stViFrame.stVFrame.pMbBlk);
+
+		t0 = now_us();
+
+		// -----------------------------
+		// 2. PREPROCESS → RKNN TENSOR
+		// -----------------------------
+		rga_letterbox_nv12_to_rknn(
+			vi_data, width, height,
+			&rknn_app_ctx,
+			640, 640
+		);
+
+		t1 = now_us();
+
+		// -----------------------------
+		// 3. RUN YOLO INFERENCE
+		// -----------------------------
+		inference_yolov5_model(&rknn_app_ctx, &od_results);
+
+		t2 = now_us();
+
+		// -----------------------------
+		// 4. COPY NV12 CAMERA → RGB888 DMA BUFFER
+		// -----------------------------
+		rga_buffer_t src_nv12 = wrapbuffer_virtualaddr(
+			vi_data, width, height, RK_FORMAT_YCbCr_420_SP
+		);
+		rga_buffer_t dst_rgb = wrapbuffer_virtualaddr(
+			data, width, height, RK_FORMAT_RGB_888
+		);
+
+		// Convert NV12 camera to RGB888 display buffer
+		imcvtcolor(src_nv12, dst_rgb, 
+				RK_FORMAT_YCbCr_420_SP, 
+				RK_FORMAT_RGB_888);
+
+		// -----------------------------
+		// 5. DRAW YOLO BOXES (ON RGB BUFFER)
+		// -----------------------------
+		for (int i = 0; i < od_results.count; i++)
 		{
-			void *vi_data = RK_MPI_MB_Handle2VirAddr(stViFrame.stVFrame.pMbBlk);	
+			object_detect_result* det = &(od_results.results[i]);
 
-			t0 = now_us();
-			cv::Mat yuv420sp(height + height / 2, width, CV_8UC1, vi_data);
-			// Use memory safe operations
-			cv::Mat bgr_dma(height, width, CV_8UC3, data);
-			cv::Mat bgr;
-			bgr_dma.copyTo(bgr);
+			int sX = det->box.left;
+			int sY = det->box.top;
+			int eX = det->box.right;
+			int eY = det->box.bottom;
+
+			// Map inference coords back to screen coords
+			mapCoordinates(&sX, &sY);
+			mapCoordinates(&eX, &eY);
 			
-			t1 = now_us();
-			cv::cvtColor(yuv420sp, bgr, cv::COLOR_YUV420sp2BGR);
-			t2 = now_us();
-			cv::resize(bgr, frame, cv::Size(width ,height), 0, 0, cv::INTER_LINEAR);
-			t3 = now_us();
-
-			//letterbox
-			cv::Mat letterboxImage = letterbox(frame);	
-			t4 = now_us();
-			memcpy(rknn_app_ctx.input_mems[0]->virt_addr, letterboxImage.data, model_width*model_height*3);		
-			
-			inference_yolov5_model(&rknn_app_ctx, &od_results);
-			t5 = now_us();
-
-			for(int i = 0; i < od_results.count; i++)
-			{					
-				if(od_results.count >= 1)
-				{
-					object_detect_result *det_result = &(od_results.results[i]);
-	
-					sX = (int)(det_result->box.left   );	
-					sY = (int)(det_result->box.top 	  );	
-					eX = (int)(det_result->box.right  );	
-					eY = (int)(det_result->box.bottom );
-					mapCoordinates(&sX,&sY);
-					mapCoordinates(&eX,&eY);
-					
-					// Print to UART terminal the detection result MAVLink compatible message
-
-
-					printf("%s @ (%d %d %d %d) %.3f\n", coco_cls_to_name(det_result->cls_id),
-							 sX, sY, eX, eY, det_result->prop);
-
-					cv::rectangle(frame,cv::Point(sX ,sY),
-								        cv::Point(eX ,eY),
-										cv::Scalar(0,255,0),3);
-					sprintf(text, "%s %.1f%%", coco_cls_to_name(det_result->cls_id), det_result->prop * 100);
-					cv::putText(frame,text,cv::Point(sX, sY - 8),
-										   cv::FONT_HERSHEY_SIMPLEX,1,
-										   cv::Scalar(0,255,0),2);
-				}
-			}
+			printf("%s @ (%d %d %d %d) %.3f\n", coco_cls_to_name(det->cls_id),
+							 sX, sY, eX, eY, det->prop);
+							 
+			draw_box_rga(data, width, height,
+						sX, sY,
+						eX - sX, eY - sY,
+						0x00FF00);   // GREEN
 		}
 
-		memcpy(data, frame.data, width * height * 3);					
-		
-		// encode H264
-		RK_MPI_VENC_SendFrame(0, &h264_frame,0);
+		// -----------------------------
+		// 6. SEND RGB BUFFER TO ENCODER
+		// -----------------------------
+		h264_frame.stVFrame.pMbBlk   = src_Blk;
+		h264_frame.stVFrame.u32TimeRef = H264_TimeRef++;
+		h264_frame.stVFrame.u64PTS   = TEST_COMM_GetNowUs();
 
-		// rtsp
+		RK_MPI_VENC_SendFrame(0, &h264_frame, 0);
+
+		// -----------------------------
+		// 7. GET ENCODED STREAM → RTSP
+		// -----------------------------
 		s32Ret = RK_MPI_VENC_GetStream(0, &stFrame, 0);
-		if(s32Ret == RK_SUCCESS)
+		if (s32Ret == RK_SUCCESS)
 		{
-			if(g_rtsplive && g_rtsp_session)
-			{
-				//printf("len = %d PTS = %d \n",stFrame.pstPack->u32Len, stFrame.pstPack->u64PTS);	
-				void *pData = RK_MPI_MB_Handle2VirAddr(stFrame.pstPack->pMbBlk);
-				rtsp_tx_video(g_rtsp_session, (uint8_t *)pData, stFrame.pstPack->u32Len,
-							  stFrame.pstPack->u64PTS);
-				rtsp_do_event(g_rtsplive);
-			}
+			void* pData = RK_MPI_MB_Handle2VirAddr(stFrame.pstPack->pMbBlk);
+
+			rtsp_tx_video(g_rtsp_session,
+						(uint8_t*)pData,
+						stFrame.pstPack->u32Len,
+						stFrame.pstPack->u64PTS);
+
+			rtsp_do_event(g_rtsplive);
 		}
 
-		// release frame 
-		s32Ret = RK_MPI_VI_ReleaseChnFrame(0, 0, &stViFrame);
-		if (s32Ret != RK_SUCCESS) {
-			RK_LOGE("RK_MPI_VI_ReleaseChnFrame fail %x", s32Ret);
-		}
-		s32Ret = RK_MPI_VENC_ReleaseStream(0, &stFrame);
-		if (s32Ret != RK_SUCCESS) {
-			RK_LOGE("RK_MPI_VENC_ReleaseStream fail %x", s32Ret);
-		}
-		memset(text,0,8);
+		// -----------------------------
+		// 8. RELEASE BUFFERS
+		// -----------------------------
+		RK_MPI_VI_ReleaseChnFrame(0, 0, &stViFrame);
+		RK_MPI_VENC_ReleaseStream(0, &stFrame);
 
-		t6 = now_us();
-
-		printf("YUV2BGR=%lld ms | Resize=%lld ms | Letterbox=%lld ms | NPU=%lld ms | Post=%lld ms\n",
-			(t2 - t1)/1000,
-			(t3 - t2)/1000,
-			(t4 - t3)/1000,
-			(t5 - t4)/1000,
-			(t6 - t5)/1000);
-	}
+		// -----------------------------
+		// 9. PROFILING PRINT
+		// -----------------------------
+		printf("RGA Preprocess=%lld ms | NPU Inference=%lld ms\n",
+			(t1 - t0) / 1000,
+			(t2 - t1) / 1000);
+	} // while(1)
 
 
 	// Destory MB
