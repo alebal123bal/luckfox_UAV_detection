@@ -19,6 +19,7 @@
 #include "yolov5.h"
 #include "uart_comm.h"
 #include "rga_hw_accel.h"
+#include "mavlink_comm.h"
 
 #include "im2d.hpp"
 #include "RgaUtils.h"
@@ -222,6 +223,16 @@ int main(int argc, char *argv[]) {
 						sX, sY,
 						eX - sX, eY - sY,
 						BOX_COLOR, BOX_THICKNESS);
+
+			// Send detection via MAVLink over UART
+			mavlink_send_detection(
+				serial_fd,
+				sX, sY, eX - sX, eY - sY,
+				det->prop,
+				det->cls_id,
+				i,
+				width, height
+			);
 		}
 
 		// -----------------------------
