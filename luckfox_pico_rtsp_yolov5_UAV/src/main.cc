@@ -34,7 +34,8 @@ int height   = DISP_HEIGHT;
 // Serial terminal
 #define SERIAL_PORT_NUM 3  // UART3
 
-// Box thickness
+// Box color and thickness
+#define BOX_COLOR 0x00FF00  // Green
 #define BOX_THICKNESS 4
 
 // model size
@@ -145,7 +146,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	// Test UART connection
-	uart_printf(serial_fd, "Hello world!\n");
+	uart_printf(serial_fd, "UART success!\n");
 
 
 	// Profiling
@@ -220,7 +221,7 @@ int main(int argc, char *argv[]) {
 			draw_box_rga(data, width, height,
 						sX, sY,
 						eX - sX, eY - sY,
-						0x00FF00, BOX_THICKNESS);   // GREEN
+						BOX_COLOR, BOX_THICKNESS);
 		}
 
 		// -----------------------------
