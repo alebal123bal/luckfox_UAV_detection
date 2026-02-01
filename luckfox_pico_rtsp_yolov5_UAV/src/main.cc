@@ -39,6 +39,9 @@ int height   = DISP_HEIGHT;
 #define BOX_COLOR 0x00FF00  // Green
 #define BOX_THICKNESS 4
 
+// Print also on ssh
+// #define PRINT_ON_SSH
+
 // model size
 int model_width = 640;
 int model_height = 640;	
@@ -216,8 +219,10 @@ int main(int argc, char *argv[]) {
 			mapCoordinates(&sX, &sY);
 			mapCoordinates(&eX, &eY);
 			
+			#ifdef PRINT_ON_SSH
 			printf("%s @ (%d %d %d %d) %.3f\n", coco_cls_to_name(det->cls_id),
 							 sX, sY, eX, eY, det->prop);
+			#endif
 							 
 			draw_box_rga(data, width, height,
 						sX, sY,
