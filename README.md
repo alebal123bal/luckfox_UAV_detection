@@ -29,6 +29,7 @@ This optimization provides a **19x performance improvement** for raster operatio
 - YOLOv5-based detection using RKNN neural network acceleration
 - Ultra-low latency video processing (~40ms)
 - **Zero OpenCV dependencies** - pure RGA hardware acceleration
+- **MAVLink telemetry streaming** - detection data streamed via UART using MAVLink protocol for integration with autopilots and ground control stations
 - Runs entirely on embedded hardware
 - 720x480 @ 30fps video capture with real-time inference
 - Direct DMA buffer operations for maximum efficiency
@@ -153,6 +154,8 @@ luckfox_UAV_detection/
 
 ## Technical Implementation
 
+### Hardware-Accelerated Image Preprocessing
+
 All image preprocessing operations leverage the RV1106's hardware RGA (Raster Graphic Acceleration) unit:
 
 ```cpp
@@ -172,6 +175,34 @@ This single hardware-accelerated function replaces multiple CPU-intensive OpenCV
 - Memory copying to inference buffer
 
 **Result**: 19x performance improvement over CPU-based preprocessing
+
+### MAVLink Telemetry Integration
+
+Detection results are streamed in real-time via UART using the MAVLink protocol for seamless integration with autopilots and ground control stations:
+
+```cpp
+// Send detection via MAVLink
+mavlink_send_detection(
+    uart_fd,
+    x, y, width, height,           // Bounding box coordinates
+    confidence, class_id,           // Detection confidence & class
+    target_num,                     // Target identifier
+    frame_width, frame_height       // Frame dimensions
+);
+```
+
+**MAVLink features:**
+- Custom message ID (9000) for UAV detection data
+- Normalized coordinates (-1 to 1) for platform-independent positioning
+- Timestamp synchronization for multi-sensor fusion
+- CRC-16 checksum for data integrity
+- Compatible with Mission Planner, QGroundControl, and custom GCS applications
+
+This enables:
+- Real-time detection alerts on ground control stations
+- Integration with autopilot collision avoidance systems
+- Data logging for post-flight analysis
+- Remote monitoring and tactical awareness
 
 ## Limitations
 
