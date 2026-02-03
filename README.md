@@ -251,7 +251,9 @@ If you use this project in your research or work, please star this repo.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
+
+Copyright (c) 2026 Alessandro Balzan
 
 ## Acknowledgments
 
