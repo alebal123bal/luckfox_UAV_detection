@@ -8,6 +8,14 @@ Real-time UAV (drone) detection system running on Luckfox Pico embedded board us
 
 This project is intended for **educational and research purposes only**. Users are responsible for ensuring compliance with all applicable local, state, and federal laws regarding surveillance, privacy, and airspace monitoring. The authors and contributors assume no liability for misuse of this software.
 
+## 🛡️ Project Origin & IP Disclaimer
+
+**This project is a strictly personal, open-source endeavor.**
+
+*   **Hardware:** Developed exclusively on the **Luckfox Pico (Rockchip RV1106)**, a $25 hobbyist embedded Linux board.
+*   **Software:** Relies entirely on the open-source **Rockchip RKNN SDK** and **YOLOv5n**.
+*   **Separation:** No proprietary algorithms, code, hardware, or intellectual property from my professional work (Defense/Aerospace) were used. The techniques used here (NPU/RGA on Rockchip) are architecturally distinct from FPGA-based RTL designs.
+
 ## Overview
 
 This system achieves **blazing fast 20 FPS** real-time UAV detection on the Luckfox Pico Pro/Max boards (RV1106G2/3) using hardware-accelerated RGA (Raster Graphic Acceleration) operations, demonstrating highly efficient edge AI deployment for aerial object detection.
