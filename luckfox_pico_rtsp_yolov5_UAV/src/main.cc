@@ -41,7 +41,10 @@ int height   = DISP_HEIGHT;
 #define BOX_THICKNESS 4
 
 // Print also on ssh
-// #define PRINT_ON_SSH
+#define PRINT_ON_SSH false
+
+// Print timing 
+#define PRINT_TIMING false
 
 // model size
 int model_width = 640;
@@ -147,6 +150,7 @@ int main(int argc, char *argv[]) {
 	// Init serial port
 	int serial_fd = uart_init(SERIAL_PORT_NUM, 115200);
 	if (serial_fd < 0) {
+		printf("Make sure to enable UART%d with the command luckfox-config\n", SERIAL_PORT_NUM);
 		return 1;
 	}
 
@@ -225,7 +229,7 @@ int main(int argc, char *argv[]) {
 			mapCoordinates(&sX, &sY);
 			mapCoordinates(&eX, &eY);
 			
-			#ifdef PRINT_ON_SSH
+			#if PRINT_ON_SSH
 			printf("%s @ (%d %d %d %d) %.3f\n", coco_cls_to_name(det->cls_id),
 							 sX, sY, eX, eY, det->prop);
 			#endif
@@ -289,9 +293,11 @@ int main(int argc, char *argv[]) {
 		// -----------------------------
 		// 9. PROFILING PRINT
 		// -----------------------------
+		#if PRINT_TIMING
 		printf("RGA Preprocess=%lld ms | NPU Inference=%lld ms\n",
 			(t1 - t0) / 1000,
 			(t2 - t1) / 1000);
+		#endif
 	} // while(1)
 
 
