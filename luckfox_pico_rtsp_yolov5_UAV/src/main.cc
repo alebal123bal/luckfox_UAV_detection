@@ -20,6 +20,7 @@
 #include "uart_comm.h"
 #include "rga_hw_accel.h"
 #include "mavlink_comm.h"
+#include "flash_storage.h"
 
 #include "im2d.hpp"
 #include "RgaUtils.h"
@@ -152,6 +153,11 @@ int main(int argc, char *argv[]) {
 	// Test UART connection
 	uart_printf(serial_fd, "UART success!\n");
 
+	// Init flash storage (logs to /userdata/uav_detections on the Luckfox flash)
+	flash_storage_config_t fs_cfg = FLASH_STORAGE_DEFAULT_CONFIG;
+	if (flash_storage_init(&fs_cfg) != 0) {
+		fprintf(stderr, "Warning: flash storage init failed, detections will not be persisted\n");
+	}
 
 	// Profiling
 	long long t0, t1, t2;
@@ -238,6 +244,15 @@ int main(int argc, char *argv[]) {
 				i,
 				width, height
 			);
+
+			// Persist detection to flash
+			flash_storage_record(
+				sX, sY, eX - sX, eY - sY,
+				det->prop,
+				det->cls_id,
+				(uint8_t)i,
+				width, height
+			);
 		}
 
 		// -----------------------------
@@ -306,6 +321,9 @@ int main(int argc, char *argv[]) {
 	// Release rknn model
     release_yolov5_model(&rknn_app_ctx);		
 	deinit_post_process();
-	
+
+	// Flush and close flash log
+	flash_storage_deinit();
+
 	return 0;
 }
