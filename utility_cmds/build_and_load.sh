@@ -15,3 +15,10 @@ sshpass -p 'luckfox' scp \
     -o UserKnownHostsFile=/dev/null \
     -r "${ROOT_DIR}/install/uclibc/luckfox_pico_rtsp_yolov5_UAV_demo" \
     "root@172.32.0.93:/root/"
+
+# Sync system clock on the device to the host's current UTC time
+sshpass -p 'luckfox' ssh \
+    -o StrictHostKeyChecking=no \
+    -o UserKnownHostsFile=/dev/null \
+    root@172.32.0.93 \
+    "date -s '$(date -u "+%Y-%m-%d %H:%M:%S")'"
