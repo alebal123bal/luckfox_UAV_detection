@@ -52,6 +52,9 @@ extern "C" {
 /** Delete the oldest file once this many log files exist. */
 #define FLASH_STORAGE_DEFAULT_MAX_FILES  8
 
+/** Detections with confidence strictly below this value are silently dropped. */
+#define FLASH_STORAGE_DEFAULT_MIN_CONFIDENCE  0.6f
+
 /** Magic number written at the start of every log file ("UAVD"). */
 #define FLASH_STORAGE_MAGIC   0x55415644u
 
@@ -101,14 +104,16 @@ typedef struct {
     uint32_t    batch_size;   /**< Records to buffer in RAM before flush */
     uint32_t    max_file_size;/**< Bytes per file before rotation        */
     uint32_t    max_files;    /**< Maximum number of log files to keep   */
+    float       min_confidence; /**< Drop detections below this score [0‒1] */
 } flash_storage_config_t;
 
 /** Initialise a config struct with sensible defaults. */
 #define FLASH_STORAGE_DEFAULT_CONFIG { \
-    FLASH_STORAGE_DEFAULT_DIR,         \
-    FLASH_STORAGE_DEFAULT_BATCH,       \
+    FLASH_STORAGE_DEFAULT_DIR,           \
+    FLASH_STORAGE_DEFAULT_BATCH,         \
     FLASH_STORAGE_DEFAULT_MAX_FILE_SIZE, \
-    FLASH_STORAGE_DEFAULT_MAX_FILES    \
+    FLASH_STORAGE_DEFAULT_MAX_FILES,     \
+    FLASH_STORAGE_DEFAULT_MIN_CONFIDENCE \
 }
 
 /* ------------------------------------------------------------------ */

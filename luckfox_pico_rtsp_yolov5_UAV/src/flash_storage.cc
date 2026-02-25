@@ -38,6 +38,7 @@ static char           s_dir[FS_PATH_MAX]  = {0};
 static uint32_t       s_batch_size        = FLASH_STORAGE_DEFAULT_BATCH;
 static uint32_t       s_max_file_size     = FLASH_STORAGE_DEFAULT_MAX_FILE_SIZE;
 static uint32_t       s_max_files         = FLASH_STORAGE_DEFAULT_MAX_FILES;
+static float          s_min_confidence    = FLASH_STORAGE_DEFAULT_MIN_CONFIDENCE;
 
 /* Current open log file. */
 static int            s_fd                = -1;
@@ -320,10 +321,11 @@ int flash_storage_init(const flash_storage_config_t *cfg)
     }
 
     /* Copy configuration. */
-    const char *dir        = cfg ? cfg->dir           : FLASH_STORAGE_DEFAULT_DIR;
-    s_batch_size           = cfg ? cfg->batch_size    : FLASH_STORAGE_DEFAULT_BATCH;
-    s_max_file_size        = cfg ? cfg->max_file_size : FLASH_STORAGE_DEFAULT_MAX_FILE_SIZE;
-    s_max_files            = cfg ? cfg->max_files     : FLASH_STORAGE_DEFAULT_MAX_FILES;
+    const char *dir        = cfg ? cfg->dir             : FLASH_STORAGE_DEFAULT_DIR;
+    s_batch_size           = cfg ? cfg->batch_size      : FLASH_STORAGE_DEFAULT_BATCH;
+    s_max_file_size        = cfg ? cfg->max_file_size   : FLASH_STORAGE_DEFAULT_MAX_FILE_SIZE;
+    s_max_files            = cfg ? cfg->max_files       : FLASH_STORAGE_DEFAULT_MAX_FILES;
+    s_min_confidence       = cfg ? cfg->min_confidence  : FLASH_STORAGE_DEFAULT_MIN_CONFIDENCE;
 
     strncpy(s_dir, dir, FS_PATH_MAX - 1);
 
@@ -357,8 +359,8 @@ int flash_storage_init(const flash_storage_config_t *cfg)
     s_total_flushes = 0;
     s_initialised   = 1;
 
-    printf("[flash_storage] Initialised. dir=%s batch=%u max_file=%u B max_files=%u\n",
-           s_dir, s_batch_size, s_max_file_size, s_max_files);
+    printf("[flash_storage] Initialised. dir=%s batch=%u max_file=%u B max_files=%u min_conf=%.3f\n",
+           s_dir, s_batch_size, s_max_file_size, s_max_files, s_min_confidence);
 
     pthread_mutex_unlock(&s_mutex);
     return 0;
@@ -372,6 +374,7 @@ int flash_storage_record(int x, int y, int w, int h,
                          int frame_width, int frame_height)
 {
     if (!s_initialised) return -1;
+    if (confidence < s_min_confidence) return 0;  /* below threshold – silently drop */
 
     pthread_mutex_lock(&s_mutex);
 
