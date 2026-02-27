@@ -55,6 +55,12 @@ extern "C" {
 /** Detections with confidence strictly below this value are silently dropped. */
 #define FLASH_STORAGE_DEFAULT_MIN_CONFIDENCE  0.6f
 
+/**
+ * Save only 1 out of every N detections that pass the confidence filter.
+ * Set to 1 to disable decimation (save every detection).
+ */
+#define FLASH_STORAGE_DEFAULT_DECIMATE_N  5u
+
 /** Magic number written at the start of every log file ("UAVD"). */
 #define FLASH_STORAGE_MAGIC   0x55415644u
 
@@ -104,7 +110,8 @@ typedef struct {
     uint32_t    batch_size;   /**< Records to buffer in RAM before flush */
     uint32_t    max_file_size;/**< Bytes per file before rotation        */
     uint32_t    max_files;    /**< Maximum number of log files to keep   */
-    float       min_confidence; /**< Drop detections below this score [0‒1] */
+    float       min_confidence;   /**< Drop detections below this score [0–1]    */
+    uint32_t    decimate_n;       /**< Save 1 out of every N detections (1=off)  */
 } flash_storage_config_t;
 
 /** Initialise a config struct with sensible defaults. */
@@ -113,7 +120,8 @@ typedef struct {
     FLASH_STORAGE_DEFAULT_BATCH,         \
     FLASH_STORAGE_DEFAULT_MAX_FILE_SIZE, \
     FLASH_STORAGE_DEFAULT_MAX_FILES,     \
-    FLASH_STORAGE_DEFAULT_MIN_CONFIDENCE \
+    FLASH_STORAGE_DEFAULT_MIN_CONFIDENCE,\
+    FLASH_STORAGE_DEFAULT_DECIMATE_N     \
 }
 
 /* ------------------------------------------------------------------ */

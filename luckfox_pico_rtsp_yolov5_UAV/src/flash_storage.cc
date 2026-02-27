@@ -39,6 +39,8 @@ static uint32_t       s_batch_size        = FLASH_STORAGE_DEFAULT_BATCH;
 static uint32_t       s_max_file_size     = FLASH_STORAGE_DEFAULT_MAX_FILE_SIZE;
 static uint32_t       s_max_files         = FLASH_STORAGE_DEFAULT_MAX_FILES;
 static float          s_min_confidence    = FLASH_STORAGE_DEFAULT_MIN_CONFIDENCE;
+static uint32_t       s_decimate_n        = FLASH_STORAGE_DEFAULT_DECIMATE_N;
+static uint32_t       s_decimate_counter  = 0;  /* counts detections since last save */
 
 /* Current open log file. */
 static int            s_fd                = -1;
@@ -326,6 +328,8 @@ int flash_storage_init(const flash_storage_config_t *cfg)
     s_max_file_size        = cfg ? cfg->max_file_size   : FLASH_STORAGE_DEFAULT_MAX_FILE_SIZE;
     s_max_files            = cfg ? cfg->max_files       : FLASH_STORAGE_DEFAULT_MAX_FILES;
     s_min_confidence       = cfg ? cfg->min_confidence  : FLASH_STORAGE_DEFAULT_MIN_CONFIDENCE;
+    s_decimate_n           = (cfg && cfg->decimate_n > 0) ? cfg->decimate_n : FLASH_STORAGE_DEFAULT_DECIMATE_N;
+    s_decimate_counter     = 0;
 
     strncpy(s_dir, dir, FS_PATH_MAX - 1);
 
@@ -359,8 +363,8 @@ int flash_storage_init(const flash_storage_config_t *cfg)
     s_total_flushes = 0;
     s_initialised   = 1;
 
-    printf("[flash_storage] Initialised. dir=%s batch=%u max_file=%u B max_files=%u min_conf=%.3f\n",
-           s_dir, s_batch_size, s_max_file_size, s_max_files, s_min_confidence);
+    printf("[flash_storage] Initialised. dir=%s batch=%u max_file=%u B max_files=%u min_conf=%.3f decimate_n=%u\n",
+           s_dir, s_batch_size, s_max_file_size, s_max_files, s_min_confidence, s_decimate_n);
 
     pthread_mutex_unlock(&s_mutex);
     return 0;
@@ -375,6 +379,12 @@ int flash_storage_record(int x, int y, int w, int h,
 {
     if (!s_initialised) return -1;
     if (confidence < s_min_confidence) return 0;  /* below threshold – silently drop */
+
+    /* Count-based decimation: save only every Nth qualifying detection. */
+    s_decimate_counter++;
+    if (s_decimate_counter < s_decimate_n)
+        return 0;
+    s_decimate_counter = 0;
 
     pthread_mutex_lock(&s_mutex);
 
