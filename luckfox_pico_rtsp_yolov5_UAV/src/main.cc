@@ -60,6 +60,10 @@ static inline long long now_us() {
     return (long long)tv.tv_sec * 1000000 + tv.tv_usec;
 }
 
+// Clean shutdown on Ctrl-C / SIGTERM so pending flash records flush.  */
+static volatile sig_atomic_t g_running = 1;
+static void sig_handler(int sig) { (void)sig; g_running = 0; }
+
 void mapCoordinates(int *x, int *y) {	
 	int mx = *x - leftPadding;
 	int my = *y - topPadding;
@@ -163,10 +167,14 @@ int main(int argc, char *argv[]) {
 		fprintf(stderr, "Warning: flash storage init failed, detections will not be persisted\n");
 	}
 
+	// Register signal handlers so Ctrl-C triggers a clean shutdown
+	signal(SIGINT,  sig_handler);
+	signal(SIGTERM, sig_handler);
+
 	// Profiling
 	long long t0, t1, t2;
 
-	while (1)
+	while (g_running)
 	{
 		// -----------------------------
 		// 1. GET CAMERA FRAME (NV12)
