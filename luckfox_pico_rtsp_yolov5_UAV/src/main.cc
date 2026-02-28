@@ -39,6 +39,7 @@ int height   = DISP_HEIGHT;
 // Box color and thickness
 #define BOX_COLOR 0x00FF00  // Green
 #define BOX_THICKNESS 4
+#define BOX_CONF_THRESHOLD 0.50f  // Only draw box if confidence >= 50%
 
 // Print also on ssh
 #define PRINT_ON_SSH false
@@ -242,10 +243,13 @@ int main(int argc, char *argv[]) {
 							 sX, sY, eX, eY, det->prop);
 			#endif
 							 
-			draw_box_rga(data, width, height,
+			if (det->prop >= BOX_CONF_THRESHOLD)
+			{
+				draw_box_rga(data, width, height,
 						sX, sY,
 						eX - sX, eY - sY,
 						BOX_COLOR, BOX_THICKNESS);
+			}
 
 			// Send detection via MAVLink over UART
 			mavlink_send_detection(
