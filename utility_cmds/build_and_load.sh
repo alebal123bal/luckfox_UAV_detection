@@ -3,8 +3,18 @@
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 ROOT_DIR=$(cd "${SCRIPT_DIR}/.." && pwd)
 
-# Load picoclaw credentials (fill in utility_cmds/picoclaw/credentials.sh before first flash)
-source "${SCRIPT_DIR}/picoclaw/credentials.sh"
+# Load picoclaw credentials — use .secret.sh if present, fall back to template
+_CREDS_SECRET="${SCRIPT_DIR}/picoclaw/credentials.secret.sh"
+_CREDS_TEMPLATE="${SCRIPT_DIR}/picoclaw/credentials.sh"
+if [ -f "${_CREDS_SECRET}" ]; then
+    source "${_CREDS_SECRET}"
+elif [ -f "${_CREDS_TEMPLATE}" ]; then
+    source "${_CREDS_TEMPLATE}"
+    echo "Warning: using placeholder credentials from credentials.sh — create credentials.secret.sh with real values."
+else
+    echo "ERROR: no credentials file found."
+    exit 1
+fi
 
 bash "${ROOT_DIR}/build.sh"
 
