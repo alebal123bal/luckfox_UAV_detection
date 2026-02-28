@@ -2,7 +2,9 @@
 
 ![Live UAV Detection](gifs/live_detection.gif)
 
-Real-time UAV (drone) detection system running on Luckfox Pico embedded board using YOLOv5 and RTSP streaming.
+![PicoClaw AI Assistant](gifs/picoclaw_and_Yolo.gif)
+
+Real-time UAV (drone) detection system running on Luckfox Pico embedded board using YOLOv5 and RTSP streaming, with an embedded AI assistant powered by [PicoClaw](https://github.com/sipeed/picoclaw).
 
 ## ⚠️ Legal Notice
 
@@ -41,6 +43,50 @@ This optimization provides a **19x performance improvement** for raster operatio
 - Runs entirely on embedded hardware
 - 720x480 @ 30fps video capture with real-time inference
 - Direct DMA buffer operations for maximum efficiency
+
+## 🦐 Embedded AI Assistant (PicoClaw)
+
+The system integrates [PicoClaw](https://github.com/sipeed/picoclaw) — an ultra-lightweight AI assistant (<10 MB RAM, <1s boot) — running directly on the LuckFox Pico. It connects to your Telegram and lets you query UAV movement analysis in natural language without leaving your phone.
+
+### What it does
+
+- Reads binary detection logs produced by `read_detections`
+- Computes UAV trajectory, approach vector, speed, and movement pattern
+- Responds via Telegram
+
+### Internet Access via SSH Reverse Tunnel
+
+The LuckFox has no direct internet access. You must forward your host machine's internet connection to the device over SSH. **Run this from a Windows CMD / PowerShell or Linux terminal on your host before starting picoclaw:**
+
+```cmd
+ssh -R 1080 root@172.32.0.93 -N
+```
+
+This opens a SOCKS5 proxy on `127.0.0.1:1080` on the device. The `build_and_load.sh` script automatically writes `ALL_PROXY` and `HTTPS_PROXY` pointing to it into `/etc/profile.d/picoclaw.sh`, so picoclaw picks them up on every login.
+
+### Setup
+
+All picoclaw setup (binary upload, CA certificate, config, workspace files) is automated inside `build_and_load.sh`. Before the first flash, fill in your credentials:
+
+```bash
+# Copy the template and fill in your real keys
+cp utility_cmds/picoclaw/credentials.sh utility_cmds/picoclaw/credentials.secret.sh
+# Edit credentials.secret.sh with your DeepSeek API key and Telegram bot token
+```
+
+Then run the normal build-and-load script — picoclaw and all its config are deployed automatically on first run, skipped on subsequent runs.
+
+### Starting picoclaw on the device
+
+```bash
+# On your host — forward internet access first:
+ssh -R 1080 root@172.32.0.93 -N &
+
+# Then SSH into the device and start picoclaw:
+ssh root@172.32.0.93
+source /etc/profile.d/picoclaw.sh
+/root/picoclaw agent
+```
 
 ## Hardware Requirements
 
@@ -147,8 +193,16 @@ luckfox_UAV_detection/
 │   ├── model/                 # YOLOv5 RKNN model
 │   └── include/               # Project headers
 ├── utility_cmds/              # Helper scripts
-│   ├── smooth_stream.sh       # Low-latency stream viewer
-│   └── build_and_load.sh      # Deployment script
+│   ├── fast_stream.sh         # Low-latency stream viewer
+│   ├── build_and_load.sh      # Build + deploy everything
+│   └── picoclaw/              # PicoClaw AI assistant config
+│       ├── credentials.sh     # Credential template (committed)
+│       ├── credentials.secret.sh  # Real keys (gitignored)
+│       └── workspace/         # Agent markdown files
+│           ├── AGENT.md
+│           ├── IDENTITY.md
+│           ├── SOUL.md
+│           └── USER.md
 └── install/                   # Build output
 ```
 
@@ -270,6 +324,7 @@ Copyright (c) 2026 Alessandro Balzan
 - RKNN Toolkit by RockChip
 - RockChip excellent documentation
 - Luckfox Pico community and excellent documentation
+- [PicoClaw](https://github.com/sipeed/picoclaw) by Sipeed — ultra-lightweight AI assistant that made on-device LLM integration possible on $25 hardware
 
 ## Disclaimer
 
@@ -290,4 +345,4 @@ https://www.linkedin.com/in/alessandro-balzan-b024a9250/
 
 ---
 
-**Last Updated**: January 2026
+**Last Updated**: February 2026
