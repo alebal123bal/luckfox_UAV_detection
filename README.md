@@ -214,6 +214,20 @@ luckfox_UAV_detection/
 - **Speedup**: 19x faster image preprocessing vs OpenCV CPU-based operations; this means 20FPS versus 7FPS
 - **Optimization**: Pure RGA hardware acceleration, zero OpenCV dependencies
 
+### RAM Usage
+
+![RAM Usage](gifs/memory_usage.png)
+
+The entire system is remarkably lean. Running both the YOLOv5 detection pipeline and the PicoClaw AI assistant simultaneously leaves the board's memory almost completely free:
+
+| Process | RAM |
+|---|---|
+| YOLOv5 detection pipeline | ~9,300 kB |
+| PicoClaw AI assistant | ~14,500 kB |
+| **Total** | **~23,800 kB** |
+
+Out of 128 MB (RV1106G2) or 256 MB (RV1106G3) total — that's less than 20% used on the smaller variant, and under 10% on the larger one.
+
 ## Technical Implementation
 
 ### Hardware-Accelerated Image Preprocessing
