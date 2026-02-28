@@ -22,3 +22,31 @@ sshpass -p 'luckfox' ssh \
     -o UserKnownHostsFile=/dev/null \
     root@172.32.0.93 \
     "date -s '$(date -u "+%Y-%m-%d %H:%M:%S")'"
+
+# Upload picoclaw binary only if not already present on the device (it is ~22 MB)
+PICOCLAW_SRC="${ROOT_DIR}/tools/picoclaw-linux-armv7"
+PICOCLAW_DST="/root/picoclaw"
+if [ -f "${PICOCLAW_SRC}" ]; then
+    sshpass -p 'luckfox' ssh \
+        -o StrictHostKeyChecking=no \
+        -o UserKnownHostsFile=/dev/null \
+        root@172.32.0.93 \
+        "test -f ${PICOCLAW_DST}" 2>/dev/null
+    if [ $? -ne 0 ]; then
+        echo "picoclaw not found on device — uploading..."
+        sshpass -p 'luckfox' scp \
+            -o StrictHostKeyChecking=no \
+            -o UserKnownHostsFile=/dev/null \
+            "${PICOCLAW_SRC}" "root@172.32.0.93:${PICOCLAW_DST}"
+        sshpass -p 'luckfox' ssh \
+            -o StrictHostKeyChecking=no \
+            -o UserKnownHostsFile=/dev/null \
+            root@172.32.0.93 \
+            "chmod +x ${PICOCLAW_DST}"
+        echo "picoclaw uploaded."
+    else
+        echo "picoclaw already present on device — skipping upload."
+    fi
+else
+    echo "Warning: ${PICOCLAW_SRC} not found locally — skipping picoclaw upload."
+fi
