@@ -3,8 +3,8 @@
 # Source this file; do not execute it directly.
 
 _COMMON_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-SCRIPT_DIR="${_COMMON_DIR}"
-ROOT_DIR=$(cd "${_COMMON_DIR}/.." && pwd)
+SCRIPT_DIR=$(cd "${_COMMON_DIR}/.." && pwd)
+ROOT_DIR=$(cd "${_COMMON_DIR}/../.." && pwd)
 
 # Device connection
 DEVICE_IP="${DEVICE_IP:-172.32.0.93}"
@@ -15,8 +15,8 @@ SSH_OPTS=(-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null)
 OLLAMA_HOST="${OLLAMA_HOST:-172.32.0.100}"
 
 # Load picoclaw credentials — use .secret.sh if present, fall back to template
-_CREDS_SECRET="${SCRIPT_DIR}/picoclaw/credentials.secret.sh"
-_CREDS_TEMPLATE="${SCRIPT_DIR}/picoclaw/credentials.sh"
+_CREDS_SECRET="${SCRIPT_DIR}/credentials/credentials.secret.sh"
+_CREDS_TEMPLATE="${SCRIPT_DIR}/credentials/credentials.sh"
 if [ -f "${_CREDS_SECRET}" ]; then
     source "${_CREDS_SECRET}"
 elif [ -f "${_CREDS_TEMPLATE}" ]; then

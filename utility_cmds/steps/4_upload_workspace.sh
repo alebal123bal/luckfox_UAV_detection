@@ -3,10 +3,10 @@
 # Can be run standalone or sourced from build_and_load.sh.
 
 if [[ -z "${_COMMON_LOADED:-}" ]]; then
-    source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/_common.sh"
+    source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/common/common.sh"
 fi
 
-WORKSPACE_SRC="${SCRIPT_DIR}/picoclaw/workspace"
+WORKSPACE_SRC="${ROOT_DIR}/tools/picoclaw/workspace"
 WORKSPACE_DST="/oem/.picoclaw/workspace"
 
 device_ssh "mkdir -p ${WORKSPACE_DST}"

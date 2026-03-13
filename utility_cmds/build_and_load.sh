@@ -3,7 +3,7 @@
 # Each step can also be run standalone from utility_cmds/steps/.
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-source "${SCRIPT_DIR}/_common.sh"
+source "${SCRIPT_DIR}/common/common.sh"
 
 source "${SCRIPT_DIR}/steps/1_build.sh"
 source "${SCRIPT_DIR}/steps/2_upload_app.sh"

@@ -70,7 +70,7 @@ All picoclaw setup (binary upload, CA certificate, config, workspace files) is a
 
 ```bash
 # Copy the template and fill in your real keys
-cp utility_cmds/picoclaw/credentials.sh utility_cmds/picoclaw/credentials.secret.sh
+cp utility_cmds/credentials/credentials.sh utility_cmds/credentials/credentials.secret.sh
 # Edit credentials.secret.sh with your DeepSeek API key and Telegram bot token
 ```
 
@@ -192,9 +192,8 @@ luckfox_UAV_detection/
 │   ├── src/                   # Source code
 │   ├── model/                 # YOLOv5 RKNN model
 │   └── include/               # Project headers
-├── utility_cmds/              # Helper scripts
-│   ├── fast_stream.sh         # Low-latency stream viewer
-│   ├── build_and_load.sh      # Build + deploy everything
+├── tools/                     # Host-side toolchain binaries
+│   ├── picoclaw-linux-armv7   # PicoClaw ARM binary
 │   └── picoclaw/              # PicoClaw AI assistant config
 │       ├── credentials.sh     # Credential template (committed)
 │       ├── credentials.secret.sh  # Real keys (gitignored)
@@ -203,6 +202,13 @@ luckfox_UAV_detection/
 │           ├── IDENTITY.md
 │           ├── SOUL.md
 │           └── USER.md
+├── utility_cmds/              # Helper scripts
+│   ├── fast_stream.sh         # Low-latency stream viewer
+│   ├── build_and_load.sh      # Build + deploy everything
+│   ├── credentials/           # Picoclaw API keys
+│   │   ├── credentials.sh     # Credential template (committed)
+│   │   └── credentials.secret.sh  # Real keys (gitignored)
+│   └── steps/                 # Individual deployment steps
 └── install/                   # Build output
 ```
 

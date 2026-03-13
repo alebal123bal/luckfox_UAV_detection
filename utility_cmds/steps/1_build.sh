@@ -3,7 +3,7 @@
 # Can be run standalone or sourced from build_and_load.sh.
 
 if [[ -z "${_COMMON_LOADED:-}" ]]; then
-    source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/_common.sh"
+    source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/common/common.sh"
 fi
 
 bash "${ROOT_DIR}/build.sh"

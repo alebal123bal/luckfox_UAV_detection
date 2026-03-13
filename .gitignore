@@ -2,4 +2,4 @@ install
 build
 
 # Picoclaw credentials — never commit real keys
-utility_cmds/picoclaw/credentials.secret.sh
+utility_cmds/credentials/credentials.secret.sh
