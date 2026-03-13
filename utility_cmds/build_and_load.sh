@@ -16,6 +16,9 @@ else
     exit 1
 fi
 
+# Host IP reachable from the device (USB-gadget network gateway)
+OLLAMA_HOST="${OLLAMA_HOST:-172.32.0.100}"
+
 bash "${ROOT_DIR}/build.sh"
 
 # Cross-compile read_detections for uclibc
@@ -156,7 +159,7 @@ cat > "${_CONFIG_TMP}" << CONFIG_EOF
 {
   "agents": {
     "defaults": {
-      "model": "deepseek-chat",
+      "model": "qwen2.5-coder:3b",
       "restrict_to_workspace": false
     }
   },
@@ -166,6 +169,12 @@ cat > "${_CONFIG_TMP}" << CONFIG_EOF
       "model": "deepseek/deepseek-chat",
       "api_base": "https://api.deepseek.com/v1",
       "api_key": "${PICOCLAW_DEEPSEEK_KEY}"
+    },
+    {
+      "model_name": "qwen2.5-coder:3b",
+      "model": "qwen2.5-coder:3b",
+      "api_base": "http://${OLLAMA_HOST}:11434/v1",
+      "api_key": "ollama"
     }
   ],
   "channels": {
