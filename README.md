@@ -216,7 +216,7 @@ luckfox_UAV_detection/
 
 ### RAM Usage
 
-![RAM Usage](gifs/memory_usage.png)
+![RAM Usage](images/memory_usage.png)
 
 The entire system is remarkably lean. Running both the YOLOv5 detection pipeline and the PicoClaw AI assistant simultaneously leaves the board's memory almost completely free:
 
