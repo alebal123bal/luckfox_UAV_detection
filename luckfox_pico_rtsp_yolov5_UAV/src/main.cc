@@ -41,8 +41,11 @@ int height   = DISP_HEIGHT;
 #define BOX_THICKNESS 4
 #define BOX_CONF_THRESHOLD 0.50f  // Only draw box if confidence >= 50%
 
-// Print also on ssh
+// Print on ssh
 #define PRINT_ON_SSH false
+
+// Print on UART
+#define PRINT_ON_UART false
 
 // Print timing 
 #define PRINT_TIMING false
@@ -152,15 +155,17 @@ int main(int argc, char *argv[]) {
 
 	printf("venc init success\n");	
 
+	#if PRINT_UART
 	// Init serial port
-	int serial_fd = uart_init(SERIAL_PORT_NUM, 115200);
-	if (serial_fd < 0) {
-		printf("Make sure to enable UART%d with the command luckfox-config\n", SERIAL_PORT_NUM);
-		return 1;
-	}
+		int serial_fd = uart_init(SERIAL_PORT_NUM, 115200);
+		if (serial_fd < 0) {
+			printf("Make sure to enable UART%d with the command luckfox-config\n", SERIAL_PORT_NUM);
+			return 1;
+		}
 
 	// Test UART connection
 	uart_printf(serial_fd, "UART success!\n");
+	#endif
 
 	// Init flash storage (logs to /userdata/uav_detections on the Luckfox flash)
 	flash_storage_config_t fs_cfg = FLASH_STORAGE_DEFAULT_CONFIG;
@@ -227,6 +232,7 @@ int main(int argc, char *argv[]) {
 		// -----------------------------
 		for (int i = 0; i < od_results.count; i++)
 		{
+			// Retrieve detection result
 			object_detect_result* det = &(od_results.results[i]);
 
 			int sX = det->box.left;
@@ -246,6 +252,7 @@ int main(int argc, char *argv[]) {
 			mapCoordinates(&sX, &sY);
 			mapCoordinates(&eX, &eY);
 			
+			// Print detection on ssh terminal
 			#if PRINT_ON_SSH
 			printf("%s @ (%d %d %d %d) %.3f\n", coco_cls_to_name(det->cls_id),
 							 sX, sY, eX, eY, det->prop);
@@ -258,6 +265,7 @@ int main(int argc, char *argv[]) {
 					BOX_COLOR, BOX_THICKNESS);
 
 			// Send detection via MAVLink over UART
+			#if PRINT_ON_UART
 			mavlink_send_detection(
 				serial_fd,
 				sX, sY, eX - sX, eY - sY,
@@ -266,6 +274,7 @@ int main(int argc, char *argv[]) {
 				i,
 				width, height
 			);
+			#endif
 
 			// Persist detection to flash
 			flash_storage_record(
@@ -340,7 +349,9 @@ int main(int argc, char *argv[]) {
 	RK_MPI_SYS_Exit();
 
 	// Close UART
+	#if PRINT_ON_UART
 	uart_close(serial_fd);
+	#endif
 
 	// Release rknn model
     release_yolov5_model(&rknn_app_ctx);		
