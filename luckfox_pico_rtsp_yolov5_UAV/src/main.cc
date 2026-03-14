@@ -234,6 +234,14 @@ int main(int argc, char *argv[]) {
 			int eX = det->box.right;
 			int eY = det->box.bottom;
 
+			// If any coord < 0, break
+			if (sX < 0 || sY < 0 || eX < 0 || eY < 0)
+				continue;
+
+			// If confidence is low, break
+			if (det->prop < BOX_CONF_THRESHOLD)
+				continue;
+
 			// Map inference coords back to screen coords
 			mapCoordinates(&sX, &sY);
 			mapCoordinates(&eX, &eY);
@@ -242,14 +250,12 @@ int main(int argc, char *argv[]) {
 			printf("%s @ (%d %d %d %d) %.3f\n", coco_cls_to_name(det->cls_id),
 							 sX, sY, eX, eY, det->prop);
 			#endif
-							 
-			if (det->prop >= BOX_CONF_THRESHOLD)
-			{
-				draw_box_rga(data, width, height,
-						sX, sY,
-						eX - sX, eY - sY,
-						BOX_COLOR, BOX_THICKNESS);
-			}
+			
+			// Draw box on RGB buffer with RGA hardware acceleration
+			draw_box_rga(data, width, height,
+					sX, sY,
+					eX - sX, eY - sY,
+					BOX_COLOR, BOX_THICKNESS);
 
 			// Send detection via MAVLink over UART
 			mavlink_send_detection(
