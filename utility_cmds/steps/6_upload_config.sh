@@ -13,8 +13,11 @@ cat > "${_CONFIG_TMP}" << CONFIG_EOF
 {
   "agents": {
     "defaults": {
-      "model": "qwen2.5-coder:3b",
-      "restrict_to_workspace": false
+      "model": "qwen7b",
+      "restrict_to_workspace": false,
+      "max_tokens": 2048,
+      "temperature": 0.2,
+      "max_tool_iterations": 3
     }
   },
   "model_list": [
@@ -25,8 +28,8 @@ cat > "${_CONFIG_TMP}" << CONFIG_EOF
       "api_key": "${PICOCLAW_DEEPSEEK_KEY}"
     },
     {
-      "model_name": "qwen2.5-coder:3b",
-      "model": "qwen2.5-coder:3b",
+      "model_name": "qwen7b",
+      "model": "ollama/qcwind/qwen2.5-7B-instruct-Q4_K_M:latest",
       "api_base": "http://${OLLAMA_HOST}:11434/v1",
       "api_key": "ollama"
     }
@@ -37,6 +40,10 @@ cat > "${_CONFIG_TMP}" << CONFIG_EOF
       "token": "${PICOCLAW_TELEGRAM_TOKEN}",
       "allow_from": ["${PICOCLAW_TELEGRAM_ALLOW_FROM}"]
     }
+  },
+  "heartbeat": {
+    "enabled": false,
+    "interval": 30
   }
 }
 CONFIG_EOF
