@@ -43,6 +43,9 @@ extern "C" {
 /** Default directory on the writable /userdata partition (Luckfox Pico). */
 #define FLASH_STORAGE_DEFAULT_DIR     "/userdata/uav_detections"
 
+/** Default prefix for log filenames (prefix_YYYYMMDD_HHMMSS_<us>.bin). */
+#define FLASH_STORAGE_DEFAULT_FILE_PREFIX  "detections"
+
 /** Flush the RAM batch buffer to disk after this many records. */
 #define FLASH_STORAGE_DEFAULT_BATCH   32
 
@@ -107,6 +110,7 @@ typedef struct {
 
 typedef struct {
     const char *dir;          /**< Directory to store log files          */
+    const char *file_prefix;  /**< Filename prefix (prefix_YYYYMMDD_…bin) */
     uint32_t    batch_size;   /**< Records to buffer in RAM before flush */
     uint32_t    max_file_size;/**< Bytes per file before rotation        */
     uint32_t    max_files;    /**< Maximum number of log files to keep   */
@@ -117,6 +121,7 @@ typedef struct {
 /** Initialise a config struct with sensible defaults. */
 #define FLASH_STORAGE_DEFAULT_CONFIG { \
     FLASH_STORAGE_DEFAULT_DIR,           \
+    FLASH_STORAGE_DEFAULT_FILE_PREFIX,   \
     FLASH_STORAGE_DEFAULT_BATCH,         \
     FLASH_STORAGE_DEFAULT_MAX_FILE_SIZE, \
     FLASH_STORAGE_DEFAULT_MAX_FILES,     \

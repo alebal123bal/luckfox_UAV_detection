@@ -33,8 +33,12 @@
 /** Separator between directory path and filename in logs. */
 #define FS_SEP "/"
 
+/** Maximum length for the file prefix string. */
+#define FS_PREFIX_MAX 64
+
 /* Internal config copy (set by flash_storage_init). */
-static char           s_dir[FS_PATH_MAX]  = {0};
+static char           s_dir[FS_PATH_MAX]     = {0};
+static char           s_file_prefix[FS_PREFIX_MAX] = "detections";
 static uint32_t       s_batch_size        = FLASH_STORAGE_DEFAULT_BATCH;
 static uint32_t       s_max_file_size     = FLASH_STORAGE_DEFAULT_MAX_FILE_SIZE;
 static uint32_t       s_max_files         = FLASH_STORAGE_DEFAULT_MAX_FILES;
@@ -99,15 +103,15 @@ static int mkdir_p(const char *path)
     return 0;
 }
 
-/** Build a filename: <dir>/detections_YYYYMMDD_HHMMSS_<us>.bin */
+/** Build a filename: <dir>/<prefix>_YYYYMMDD_HHMMSS_<us>.bin */
 static void make_filename(char *out, size_t out_sz, uint64_t ts_us)
 {
     time_t secs = (time_t)(ts_us / 1000000ULL);
     struct tm t;
     gmtime_r(&secs, &t);
     snprintf(out, out_sz,
-             "%s" FS_SEP "detections_%04d%02d%02d_%02d%02d%02d_%06llu" FS_FILE_EXT,
-             s_dir,
+             "%s" FS_SEP "%s_%04d%02d%02d_%02d%02d%02d_%06llu" FS_FILE_EXT,
+             s_dir, s_file_prefix,
              t.tm_year + 1900, t.tm_mon + 1, t.tm_mday,
              t.tm_hour, t.tm_min, t.tm_sec,
              (unsigned long long)(ts_us % 1000000ULL));
@@ -324,6 +328,7 @@ int flash_storage_init(const flash_storage_config_t *cfg)
 
     /* Copy configuration. */
     const char *dir        = cfg ? cfg->dir             : FLASH_STORAGE_DEFAULT_DIR;
+    const char *prefix     = (cfg && cfg->file_prefix)  ? cfg->file_prefix : FLASH_STORAGE_DEFAULT_FILE_PREFIX;
     s_batch_size           = cfg ? cfg->batch_size      : FLASH_STORAGE_DEFAULT_BATCH;
     s_max_file_size        = cfg ? cfg->max_file_size   : FLASH_STORAGE_DEFAULT_MAX_FILE_SIZE;
     s_max_files            = cfg ? cfg->max_files       : FLASH_STORAGE_DEFAULT_MAX_FILES;
@@ -332,6 +337,7 @@ int flash_storage_init(const flash_storage_config_t *cfg)
     s_decimate_counter     = 0;
 
     strncpy(s_dir, dir, FS_PATH_MAX - 1);
+    strncpy(s_file_prefix, prefix, FS_PREFIX_MAX - 1);
 
     /* Ensure the storage directory exists. */
     if (mkdir_p(s_dir) != 0) {
