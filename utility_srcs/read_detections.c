@@ -21,39 +21,13 @@
 #include <dirent.h>
 #include <sys/stat.h>
 #include <time.h>
+#include "motion_features.h"
 
 /* ------------------------------------------------------------------ */
-/*  Structures – must match flash_storage.h exactly                    */
+/*  Local constants                                                     */
 /* ------------------------------------------------------------------ */
 
-#define FLASH_STORAGE_MAGIC   0x55415644u
-#define FLASH_STORAGE_VERSION 1u
-#define DEFAULT_DIR           "/userdata/uav_detections"
-
-#pragma pack(push, 1)
-
-typedef struct {
-    uint32_t magic;
-    uint8_t  version;
-    uint8_t  _pad[3];
-    uint64_t created_us;
-} flash_file_header_t;
-
-typedef struct {
-    uint64_t timestamp_us;
-    int32_t  x;
-    int32_t  y;
-    int32_t  w;
-    int32_t  h;
-    float    confidence;
-    uint16_t frame_width;
-    uint16_t frame_height;
-    uint8_t  class_id;
-    uint8_t  target_num;
-    uint8_t  _pad[2];
-} flash_detection_record_t;
-
-#pragma pack(pop)
+#define DEFAULT_DIR "/userdata/uav_detections"
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                             */
@@ -269,73 +243,110 @@ static long cmd_csv(const char *dir, const char *out_path)
     return total;
 }
 
-/** Export all logs to JSON. */
-static long cmd_json(const char *dir, const char *out_path)
+/** Load all detection records from all .bin files in dir into a flat array.
+ *  Caller must free *out.  Returns count, 0 if none, -1 on error. */
+static long load_all_records(const char *dir, flash_detection_record_t **out)
 {
     char **names = NULL;
     int n = list_bin_files(dir, &names);
-    if (n <= 0) { printf("No log files found in %s\n", dir); return 0; }
+    if (n <= 0) { *out = NULL; return 0; }
 
-    int to_stdout = (strcmp(out_path, "-") == 0);
-    FILE *js = to_stdout ? stdout : fopen(out_path, "w");
-    if (!js) { perror(out_path); return -1; }
+    long capacity = 1024;
+    flash_detection_record_t *buf =
+        (flash_detection_record_t *)malloc(capacity * sizeof(*buf));
+    if (!buf) { *out = NULL; return -1; }
+    long count = 0;
 
-    fprintf(js, "[\n");
-
-    long total = 0;
     for (int i = 0; i < n; i++) {
         FILE *fp = fopen(names[i], "rb");
         if (!fp) { free(names[i]); continue; }
-
         flash_file_header_t hdr;
         if (fread(&hdr, 1, sizeof(hdr), fp) != sizeof(hdr) ||
             hdr.magic != FLASH_STORAGE_MAGIC) {
             fclose(fp); free(names[i]); continue;
         }
-
         flash_detection_record_t r;
         while (fread(&r, 1, sizeof(r), fp) == sizeof(r)) {
-            char ts[48];
-            us_to_str(r.timestamp_us, ts, sizeof(ts));
-            if (total > 0)
-                fprintf(js, ",\n");
-            fprintf(js,
-                "  {\n"
-                "    \"timestamp_us\": %llu,\n"
-                "    \"timestamp\": \"%s\",\n"
-                "    \"x\": %d,\n"
-                "    \"y\": %d,\n"
-                "    \"w\": %d,\n"
-                "    \"h\": %d,\n"
-                "    \"confidence\": %.4f,\n"
-                "    \"class_id\": %u,\n"
-                "    \"target_num\": %u,\n"
-                "    \"frame_width\": %u,\n"
-                "    \"frame_height\": %u\n"
-                "  }",
-                (unsigned long long)r.timestamp_us,
-                ts,
-                r.x, r.y, r.w, r.h,
-                r.confidence,
-                (unsigned)r.class_id,
-                (unsigned)r.target_num,
-                (unsigned)r.frame_width,
-                (unsigned)r.frame_height);
-            total++;
+            if (count >= capacity) {
+                capacity *= 2;
+                flash_detection_record_t *tmp =
+                    (flash_detection_record_t *)realloc(buf, capacity * sizeof(*buf));
+                if (!tmp) { fclose(fp); free(names[i]); goto cleanup; }
+                buf = tmp;
+            }
+            buf[count++] = r;
         }
         fclose(fp);
         free(names[i]);
     }
     free(names);
+    *out = buf;
+    return count;
 
-    if (total > 0)
-        fprintf(js, "\n");
-    fprintf(js, "]\n");
+cleanup:
+    for (int i = 0; i < n; i++) free(names[i]);
+    free(names);
+    free(buf);
+    *out = NULL;
+    return -1;
+}
+
+/** Export LLM-friendly motion features to JSON (one object per unique target_num). */
+static long cmd_json(const char *dir, const char *out_path)
+{
+    flash_detection_record_t *all = NULL;
+    long total = load_all_records(dir, &all);
+    if (total <= 0) { printf("No log files found in %s\n", dir); return 0; }
+
+    int n_features = 0;
+    motion_feature_t *features = compute_motion_features(all, total, &n_features);
+    free(all);
+
+    if (!features || n_features == 0) {
+        printf("No motion features computed.\n");
+        free(features);
+        return 0;
+    }
+
+    int to_stdout = (strcmp(out_path, "-") == 0);
+    FILE *js = to_stdout ? stdout : fopen(out_path, "w");
+    if (!js) { perror(out_path); free(features); return -1; }
+
+    fprintf(js, "[\n");
+    for (int i = 0; i < n_features; i++) {
+        const motion_feature_t *f = &features[i];
+        if (i > 0)
+            fprintf(js, ",\n");
+        fprintf(js,
+            "  {\n"
+            "    \"trajectory\": {\n"
+            "      \"centroid\": [%.4f, %.4f],\n"
+            "      \"velocity\": [%.4f, %.4f],\n"
+            "      \"speed\": %.2f,\n"
+            "      \"heading_rad\": %.4f,\n"
+            "      \"samples\": %ld\n"
+            "    },\n"
+            "    \"confidence\": %.4f,\n"
+            "    \"target_id\": %u\n"
+            "  }",
+            f->nx, f->ny,
+            f->avg_vx, f->avg_vy,
+            f->avg_speed,
+            f->avg_heading_rad,
+            f->samples,
+            f->avg_confidence,
+            (unsigned)f->target_id);
+    }
+    fprintf(js, "\n]\n");
+
     if (!to_stdout) {
         fclose(js);
-        printf("Exported %ld records to %s\n", total, out_path);
+        printf("Exported motion features for %d target(s) to %s\n",
+               n_features, out_path);
     }
-    return total;
+
+    free(features);
+    return (long)n_features;
 }
 
 /** Print the last N records across all files. */

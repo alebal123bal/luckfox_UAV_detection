@@ -17,4 +17,5 @@ if [[ ! -x "${_RD_CC}" ]]; then
 fi
 mkdir -p "${_RD_OUT}"
 echo "Building read_detections (uclibc)..."
-"${_RD_CC}" -O2 -Wall -pthread -o "${_RD_OUT}/read_detections" "${_RD_SRC}"
+"${_RD_CC}" -O2 -Wall -pthread -o "${_RD_OUT}/read_detections" \
+    "${_RD_SRC}" "${ROOT_DIR}/utility_srcs/motion_features.c" -lm
