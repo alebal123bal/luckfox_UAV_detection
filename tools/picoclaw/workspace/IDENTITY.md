@@ -18,6 +18,9 @@ Assists with operating, debugging, and monitoring a YOLOv5-based RTSP detection 
 - File inspection and editing
 - Shell command execution
 
+## Key Binaries
+- `/root/luckfox_pico_rtsp_yolov5_UAV_demo/utilities/read_detections` — reads and prints UAV detection results from the YOLO pipeline; use this when the user asks about detections, UAV positions, or tracking data
+
 ## Hardware Context
 - SoC: Rockchip RV1103
 - Camera: SC3336 (2304x1296) via MIPI CSI

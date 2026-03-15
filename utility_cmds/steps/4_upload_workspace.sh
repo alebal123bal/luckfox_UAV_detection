@@ -21,3 +21,24 @@ for md in AGENT.md IDENTITY.md SOUL.md USER.md; do
         echo "${md} already present on device — skipping."
     fi
 done
+
+# Upload skills folder (each skill is a subdirectory containing SKILL.md)
+SKILLS_SRC="${WORKSPACE_SRC}/skills"
+SKILLS_DST="${WORKSPACE_DST}/skills"
+device_ssh "mkdir -p ${SKILLS_DST}"
+for skill_dir in "${SKILLS_SRC}"/*/; do
+    skill_name="$(basename "${skill_dir}")"
+    skill_file="${skill_dir}SKILL.md"
+    if [ ! -f "${skill_file}" ]; then
+        continue
+    fi
+    device_ssh "mkdir -p ${SKILLS_DST}/${skill_name}"
+    device_ssh "test -f ${SKILLS_DST}/${skill_name}/SKILL.md" 2>/dev/null
+    if [ $? -ne 0 ]; then
+        echo "${skill_name}/SKILL.md not found on device — uploading..."
+        device_scp "${skill_file}" "root@${DEVICE_IP}:${SKILLS_DST}/${skill_name}/SKILL.md"
+        echo "${skill_name}/SKILL.md uploaded."
+    else
+        echo "${skill_name}/SKILL.md already present on device — skipping."
+    fi
+done
