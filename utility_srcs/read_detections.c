@@ -6,7 +6,7 @@
  * the device and run from your SSH terminal.
  *
  * Usage (on the device):
- *   ./read_detections                         # print all logs as a table
+ *   ./read_detections                         # print motion features as JSON (default)
  *   ./read_detections -f /userdata/uav_detections/detections_*.bin
  *   ./read_detections -c /tmp/export.csv      # dump everything to CSV
  *   ./read_detections --tail 20               # last 20 records across all files
@@ -407,7 +407,7 @@ static void usage(const char *prog)
     printf(
         "Usage: %s [OPTIONS]\n"
         "\n"
-        "  (no args)           Print all records from all log files in default dir\n"
+        "  (no args)           Print motion features as JSON to stdout\n"
         "  -d <dir>            Use <dir> instead of " DEFAULT_DIR "\n"
         "  -f <file> [file...] Print specific .bin file(s)\n"
         "  -c <out.csv>        Export all logs to a CSV file\n"
@@ -502,17 +502,6 @@ int main(int argc, char *argv[])
         return 0;
     }
 
-    /* Default: print everything. */
-    char **names = NULL;
-    int n = list_bin_files(dir, &names);
-    if (n <= 0) {
-        printf("No log files found in %s\n", dir);
-        return 0;
-    }
-    for (int i = 0; i < n; i++) {
-        print_file(names[i], 1 /*with sub-header*/, 0);
-        free(names[i]);
-    }
-    free(names);
-    return 0;
+    /* Default: print motion features as JSON to stdout. */
+    return (cmd_json(dir, "-") < 0) ? 1 : 0;
 }
