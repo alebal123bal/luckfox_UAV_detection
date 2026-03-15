@@ -179,17 +179,6 @@ int flash_storage_record(int x, int y, int w, int h,
 int flash_storage_flush(void);
 
 /**
- * @brief Export all log files in the storage directory to a single CSV.
- *
- * Columns: timestamp_us, x, y, w, h, confidence, class_id,
- *          target_num, frame_width, frame_height
- *
- * @param out_path  Absolute path of the output .csv file.
- * @return Number of records exported, or -1 on error.
- */
-int flash_storage_export_csv(const char *out_path);
-
-/**
  * @brief Read a specific log file into a caller-allocated array.
  *
  * @param file_path  Absolute path to a .bin log file.

@@ -424,69 +424,6 @@ int flash_storage_flush(void)
 
 /* ------------------------------------------------------------------ */
 
-int flash_storage_export_csv(const char *out_path)
-{
-    if (!out_path) return -1;
-
-    /* Flush pending records first. */
-    flash_storage_flush();
-
-    pthread_mutex_lock(&s_mutex);
-
-    FILE *csv = fopen(out_path, "w");
-    if (!csv) {
-        fprintf(stderr, "[flash_storage] export_csv: cannot open %s: %s\n",
-                out_path, strerror(errno));
-        pthread_mutex_unlock(&s_mutex);
-        return -1;
-    }
-
-    fprintf(csv, "timestamp_us,x,y,w,h,confidence,class_id,"
-                 "target_num,frame_width,frame_height\n");
-
-    char **names = NULL;
-    int n = list_bin_files(&names);
-    int total = 0;
-
-    for (int fi = 0; fi < n; fi++) {
-        FILE *fp = fopen(names[fi], "rb");
-        if (!fp) continue;
-
-        /* Read and validate header. */
-        flash_file_header_t hdr;
-        if (fread(&hdr, 1, sizeof(hdr), fp) != sizeof(hdr) ||
-            hdr.magic != FLASH_STORAGE_MAGIC) {
-            fclose(fp);
-            continue;
-        }
-
-        flash_detection_record_t rec;
-        while (fread(&rec, 1, sizeof(rec), fp) == sizeof(rec)) {
-            fprintf(csv,
-                    "%llu,%d,%d,%d,%d,%.4f,%u,%u,%u,%u\n",
-                    (unsigned long long)rec.timestamp_us,
-                    rec.x, rec.y, rec.w, rec.h,
-                    rec.confidence,
-                    (unsigned)rec.class_id,
-                    (unsigned)rec.target_num,
-                    (unsigned)rec.frame_width,
-                    (unsigned)rec.frame_height);
-            total++;
-        }
-        fclose(fp);
-    }
-
-    fclose(csv);
-
-    for (int i = 0; i < n; i++) free(names[i]);
-    free(names);
-
-    pthread_mutex_unlock(&s_mutex);
-    return total;
-}
-
-/* ------------------------------------------------------------------ */
-
 int flash_storage_read_file(const char *file_path,
                             flash_detection_record_t *buf, size_t buf_len)
 {
