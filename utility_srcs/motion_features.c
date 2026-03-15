@@ -42,8 +42,9 @@ motion_feature_t *compute_motion_features(
             targets[n_targets++] = t;
     }
 
+    /* allocate upper bound: one entry per raw record */
     motion_feature_t *out =
-        (motion_feature_t *)malloc(n_targets * sizeof(*out));
+        (motion_feature_t *)malloc(count * sizeof(*out));
     if (!out)
         return NULL;
 
@@ -97,46 +98,46 @@ motion_feature_t *compute_motion_features(
             }
         }
 
-        /* ---- sliding-window average over the last MOTION_WINDOW samples ---- */
-        long win_start = (trk_count > MOTION_WINDOW) ? trk_count - MOTION_WINDOW : 0;
-        long win_size  = trk_count - win_start;
-        int  vel_count = 0;
-        double avg_vx = 0.0, avg_vy = 0.0, avg_speed = 0.0, avg_conf = 0.0;
+        /* ---- one output entry per non-overlapping window of MOTION_WINDOW samples ---- */
+        for (long i = 0; i < trk_count; i += MOTION_WINDOW) {
+            long win_end   = i + MOTION_WINDOW - 1;
+            if (win_end >= trk_count) win_end = trk_count - 1;
+            long win_size  = win_end - i + 1;
+            int  vel_count = 0;
+            double avg_vx = 0.0, avg_vy = 0.0, avg_speed = 0.0, avg_conf = 0.0;
 
-        for (long i = win_start; i < trk_count; i++) {
-            avg_conf += smp[i].confidence;
-            if (i > 0) {   /* first sample has no velocity */
-                avg_vx    += smp[i].vx;
-                avg_vy    += smp[i].vy;
-                avg_speed += smp[i].speed;
-                vel_count++;
+            for (long w = i; w <= win_end; w++) {
+                avg_conf += smp[w].confidence;
+                if (w > 0) {   /* sample 0 has no velocity */
+                    avg_vx    += smp[w].vx;
+                    avg_vy    += smp[w].vy;
+                    avg_speed += smp[w].speed;
+                    vel_count++;
+                }
             }
-        }
-        avg_conf /= (double)win_size;
-        if (vel_count > 0) {
-            avg_vx    /= vel_count;
-            avg_vy    /= vel_count;
-            avg_speed /= vel_count;
-        }
+            avg_conf /= (double)win_size;
+            if (vel_count > 0) {
+                avg_vx    /= vel_count;
+                avg_vy    /= vel_count;
+                avg_speed /= vel_count;
+            }
 
-        /* ---- normalized centroid from the most recent sample in the window ---- */
-        const flash_detection_record_t *last = &trk[trk_count - 1];
-        double nx = (last->frame_width  > 0)
-                    ? smp[trk_count - 1].cx / last->frame_width  : 0.0;
-        double ny = (last->frame_height > 0)
-                    ? smp[trk_count - 1].cy / last->frame_height : 0.0;
+            const flash_detection_record_t *cur = &trk[win_end];
+            double nx = (cur->frame_width  > 0) ? smp[win_end].cx / cur->frame_width  : 0.0;
+            double ny = (cur->frame_height > 0) ? smp[win_end].cy / cur->frame_height : 0.0;
 
-        /* ---- write output entry ---- */
-        out[out_count].nx              = nx;
-        out[out_count].ny              = ny;
-        out[out_count].avg_vx          = avg_vx;
-        out[out_count].avg_vy          = avg_vy;
-        out[out_count].avg_speed       = avg_speed;
-        out[out_count].avg_heading_rad = atan2(avg_vy, avg_vx);
-        out[out_count].avg_confidence  = avg_conf;
-        out[out_count].samples         = win_size;
-        out[out_count].target_id       = tgt;
-        out_count++;
+            out[out_count].timestamp_us    = cur->timestamp_us;
+            out[out_count].nx              = nx;
+            out[out_count].ny              = ny;
+            out[out_count].avg_vx          = avg_vx;
+            out[out_count].avg_vy          = avg_vy;
+            out[out_count].avg_speed       = avg_speed;
+            out[out_count].avg_heading_rad = atan2(avg_vy, avg_vx);
+            out[out_count].avg_confidence  = avg_conf;
+            out[out_count].samples         = win_size;
+            out[out_count].target_id       = tgt;
+            out_count++;
+        }
 
         free(smp);
         free(trk);

@@ -25,7 +25,7 @@
 #define FLASH_STORAGE_VERSION 1u
 
 /** Number of most-recent samples used for the smoothing window. */
-#define MOTION_WINDOW         5
+#define MOTION_WINDOW         20
 
 /* ------------------------------------------------------------------ */
 /*  On-disk structures (must match flash_storage.h exactly)            */
@@ -61,6 +61,7 @@ typedef struct {
 /* ------------------------------------------------------------------ */
 
 typedef struct {
+    uint64_t timestamp_us;    /**< Timestamp of the most recent sample in the window    */
     double  nx, ny;           /**< Normalized centroid [0..1] (latest sample in window) */
     double  avg_vx, avg_vy;   /**< Smoothed velocity  (px/s)                            */
     double  avg_speed;        /**< Smoothed speed     (px/s)                            */
@@ -75,11 +76,12 @@ typedef struct {
 /* ------------------------------------------------------------------ */
 
 /**
- * @brief Compute motion features for each unique target_num.
+ * @brief Compute a decimated motion-feature time series for each unique target_num.
  *
- * Iterates over @p records (expected in chronological order), groups by
- * target_num, computes centroid and inter-frame velocity for every sample,
- * then averages over the last MOTION_WINDOW samples.
+ * Steps through each target's track in non-overlapping windows of MOTION_WINDOW
+ * samples.  One motion_feature_t is emitted per window, so the output count is
+ * ceil(N / MOTION_WINDOW) per target (e.g. 235 records → 47 entries at window=5).
+ * The timestamp of each entry is that of the last sample in the window.
  *
  * @param records  Flat array of raw detection records.
  * @param count    Number of records in the array.

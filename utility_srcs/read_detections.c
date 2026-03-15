@@ -319,6 +319,7 @@ static long cmd_json(const char *dir, const char *out_path)
             fprintf(js, ",\n");
         fprintf(js,
             "  {\n"
+            "    \"timestamp_us\": %llu,\n"
             "    \"trajectory\": {\n"
             "      \"centroid\": [%.4f, %.4f],\n"
             "      \"velocity\": [%.4f, %.4f],\n"
@@ -329,6 +330,7 @@ static long cmd_json(const char *dir, const char *out_path)
             "    \"confidence\": %.4f,\n"
             "    \"target_id\": %u\n"
             "  }",
+            (unsigned long long)f->timestamp_us,
             f->nx, f->ny,
             f->avg_vx, f->avg_vy,
             f->avg_speed,
