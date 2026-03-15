@@ -25,7 +25,7 @@
 #define FLASH_STORAGE_VERSION 1u
 
 /** Number of most-recent samples used for the smoothing window. */
-#define MOTION_WINDOW         20
+#define MOTION_WINDOW         40    // At 20 FPS, this covers the most recent 2 seconds of each target's track.
 
 /* ------------------------------------------------------------------ */
 /*  On-disk structures (must match flash_storage.h exactly)            */
@@ -80,7 +80,7 @@ typedef struct {
  *
  * Steps through each target's track in non-overlapping windows of MOTION_WINDOW
  * samples.  One motion_feature_t is emitted per window, so the output count is
- * ceil(N / MOTION_WINDOW) per target (e.g. 235 records → 47 entries at window=5).
+ * ceil(N / MOTION_WINDOW) per target (e.g. 235 records → 6 entries at window=40).
  * The timestamp of each entry is that of the last sample in the window.
  *
  * @param records  Flat array of raw detection records.

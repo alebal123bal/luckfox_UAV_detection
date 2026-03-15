@@ -19,7 +19,35 @@ Assists with operating, debugging, and monitoring a YOLOv5-based RTSP detection 
 - Shell command execution
 
 ## Key Binaries
-- `/root/luckfox_pico_rtsp_yolov5_UAV_demo/utilities/read_detections` — reads and prints UAV detection results from the YOLO pipeline; use this when the user asks about detections, UAV positions, or tracking data
+- `/root/luckfox_pico_rtsp_yolov5_UAV_demo/utilities/read_detections` — reads UAV detection logs and outputs motion features as JSON.
+
+  **Flags:**
+  - *(no args)* or `--json` — print motion-feature JSON to stdout
+  - `-j /tmp/detections.json` — dump motion-feature JSON to a file (preferred for analysis)
+  - `-c /tmp/export.csv` — dump raw detections as CSV
+  - `--tail 20` — print last 20 raw detections as a table
+  - `--stats` — show per-file record counts and sizes
+  - `-d <dir>` — use a different log directory (default: `/userdata/uav_detections`)
+
+  **JSON output schema** (one object per decimated time window per target):
+  ```json
+  {
+    "timestamp_us": 1773586499309090,
+    "trajectory": {
+      "centroid": [0.41, 0.37],
+      "velocity": [12.4, -8.2],
+      "speed": 14.88,
+      "heading_rad": -0.63,
+      "samples": 5
+    },
+    "confidence": 0.78,
+    "target_id": 0
+  }
+  ```
+  - `centroid` is normalized to frame size [0..1]; (0,0) is top-left
+  - `velocity` and `speed` are in pixels/second
+  - `heading_rad` is atan2(vy, vx): 0 = right, π/2 = down, ±π = left
+  - `samples` is the number of raw detections averaged into this window
 
 ## Hardware Context
 - SoC: Rockchip RV1103
