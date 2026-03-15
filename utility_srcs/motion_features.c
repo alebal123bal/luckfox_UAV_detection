@@ -7,7 +7,7 @@
  * See motion_features.h for the public API.
  */
 
-#include "motion_features.h"
+#include "include/motion_features.h"
 
 #include <stdlib.h>
 #include <math.h>

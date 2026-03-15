@@ -21,7 +21,7 @@
 #include <dirent.h>
 #include <sys/stat.h>
 #include <time.h>
-#include "motion_features.h"
+#include "include/motion_features.h"
 
 /* ------------------------------------------------------------------ */
 /*  Local constants                                                     */
