@@ -20,7 +20,7 @@
 #include "uart_comm.h"
 #include "rga_hw_accel.h"
 #include "mavlink_comm.h"
-#include "flash_storage.h"
+#include "uav_detection_log.h"
 
 #include "im2d.hpp"
 #include "RgaUtils.h"
@@ -167,9 +167,9 @@ int main(int argc, char *argv[]) {
 	uart_printf(serial_fd, "UART success!\n");
 	#endif
 
-	// Init flash storage (logs to /userdata/uav_detections on the Luckfox flash)
-	flash_storage_config_t fs_cfg = FLASH_STORAGE_DEFAULT_CONFIG;
-	if (flash_storage_init(&fs_cfg) != 0) {
+	// Init UAV detection log (logs to /userdata/uav_detections on the Luckfox flash)
+	uav_detection_log_config_t fs_cfg = UAV_DETECTION_LOG_DEFAULT_CONFIG;
+	if (uav_detection_log_init(&fs_cfg) != 0) {
 		fprintf(stderr, "Warning: flash storage init failed, detections will not be persisted\n");
 	}
 
@@ -277,7 +277,7 @@ int main(int argc, char *argv[]) {
 			#endif
 
 			// Persist detection to flash
-			flash_storage_record(
+			uav_detection_log_record(
 				sX, sY, eX - sX, eY - sY,
 				det->prop,
 				det->cls_id,
@@ -357,8 +357,8 @@ int main(int argc, char *argv[]) {
     release_yolov5_model(&rknn_app_ctx);		
 	deinit_post_process();
 
-	// Flush and close flash log
-	flash_storage_deinit();
+	// Flush and close detection log
+	uav_detection_log_deinit();
 
 	return 0;
 }

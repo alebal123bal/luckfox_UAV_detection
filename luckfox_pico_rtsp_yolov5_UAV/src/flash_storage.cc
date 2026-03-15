@@ -37,23 +37,21 @@
 #define FS_PREFIX_MAX 64
 
 /* Internal config copy (set by flash_storage_init). */
-static char           s_dir[FS_PATH_MAX]     = {0};
-static char           s_file_prefix[FS_PREFIX_MAX] = "detections";
-static uint32_t       s_batch_size        = FLASH_STORAGE_DEFAULT_BATCH;
-static uint32_t       s_max_file_size     = FLASH_STORAGE_DEFAULT_MAX_FILE_SIZE;
-static uint32_t       s_max_files         = FLASH_STORAGE_DEFAULT_MAX_FILES;
-static float          s_min_confidence    = FLASH_STORAGE_DEFAULT_MIN_CONFIDENCE;
-static uint32_t       s_decimate_n        = FLASH_STORAGE_DEFAULT_DECIMATE_N;
-static uint32_t       s_decimate_counter  = 0;  /* counts detections since last save */
+static char           s_dir[FS_PATH_MAX]           = {0};
+static char           s_file_prefix[FS_PREFIX_MAX]  = {0};
+static uint32_t       s_record_size               = 0;
+static uint32_t       s_batch_size                = FLASH_STORAGE_DEFAULT_BATCH;
+static uint32_t       s_max_file_size             = FLASH_STORAGE_DEFAULT_MAX_FILE_SIZE;
+static uint32_t       s_max_files                 = FLASH_STORAGE_DEFAULT_MAX_FILES;
 
 /* Current open log file. */
-static int            s_fd                = -1;
-static char           s_current_path[FS_PATH_MAX] = {0};
-static uint32_t       s_current_file_records = 0;
+static int            s_fd                        = -1;
+static char           s_current_path[FS_PATH_MAX]  = {0};
+static uint32_t       s_current_file_records      = 0;
 
-/* In-RAM write batch. */
-static flash_detection_record_t *s_batch  = NULL;
-static uint32_t       s_batch_count       = 0;
+/* In-RAM write batch (opaque byte buffer). */
+static uint8_t       *s_batch                     = NULL;
+static uint32_t       s_batch_count               = 0;
 
 /* Runtime statistics. */
 static uint64_t       s_total_records     = 0;
@@ -256,8 +254,8 @@ static int open_or_create_file(void)
                 /* Infer record count from file size. */
                 off_t payload = st.st_size - (off_t)sizeof(flash_file_header_t);
                 s_current_file_records =
-                    (payload > 0)
-                    ? (uint32_t)(payload / sizeof(flash_detection_record_t))
+                    (payload > 0 && s_record_size > 0)
+                    ? (uint32_t)(payload / s_record_size)
                     : 0;
                 s_num_files = (uint32_t)n;
                 goto out;
@@ -289,7 +287,7 @@ static int flush_locked(void)
     }
 
     /* Rotate if the write would overflow the current file. */
-    size_t write_sz = s_batch_count * sizeof(flash_detection_record_t);
+    size_t write_sz = s_batch_count * s_record_size;
     struct stat st;
     if (fstat(s_fd, &st) == 0 &&
         (uint32_t)(st.st_size + (off_t)write_sz) >= s_max_file_size) {
@@ -326,15 +324,19 @@ int flash_storage_init(const flash_storage_config_t *cfg)
         return 0; /* already up */
     }
 
+    if (!cfg || cfg->record_size == 0) {
+        fprintf(stderr, "[flash_storage] init: cfg must not be NULL and record_size must be > 0\n");
+        pthread_mutex_unlock(&s_mutex);
+        return -1;
+    }
+
     /* Copy configuration. */
-    const char *dir        = cfg ? cfg->dir             : FLASH_STORAGE_DEFAULT_DIR;
-    const char *prefix     = (cfg && cfg->file_prefix)  ? cfg->file_prefix : FLASH_STORAGE_DEFAULT_FILE_PREFIX;
-    s_batch_size           = cfg ? cfg->batch_size      : FLASH_STORAGE_DEFAULT_BATCH;
-    s_max_file_size        = cfg ? cfg->max_file_size   : FLASH_STORAGE_DEFAULT_MAX_FILE_SIZE;
-    s_max_files            = cfg ? cfg->max_files       : FLASH_STORAGE_DEFAULT_MAX_FILES;
-    s_min_confidence       = cfg ? cfg->min_confidence  : FLASH_STORAGE_DEFAULT_MIN_CONFIDENCE;
-    s_decimate_n           = (cfg && cfg->decimate_n > 0) ? cfg->decimate_n : FLASH_STORAGE_DEFAULT_DECIMATE_N;
-    s_decimate_counter     = 0;
+    const char *dir    = cfg->dir         ? cfg->dir         : "/userdata/flash_storage";
+    const char *prefix = cfg->file_prefix ? cfg->file_prefix : "log";
+    s_record_size    = cfg->record_size;
+    s_batch_size     = cfg->batch_size      ? cfg->batch_size      : FLASH_STORAGE_DEFAULT_BATCH;
+    s_max_file_size  = cfg->max_file_size   ? cfg->max_file_size   : FLASH_STORAGE_DEFAULT_MAX_FILE_SIZE;
+    s_max_files      = cfg->max_files       ? cfg->max_files       : FLASH_STORAGE_DEFAULT_MAX_FILES;
 
     strncpy(s_dir, dir, FS_PATH_MAX - 1);
     strncpy(s_file_prefix, prefix, FS_PREFIX_MAX - 1);
@@ -348,8 +350,7 @@ int flash_storage_init(const flash_storage_config_t *cfg)
     }
 
     /* Allocate the in-RAM batch buffer. */
-    s_batch = (flash_detection_record_t *)malloc(
-        s_batch_size * sizeof(flash_detection_record_t));
+    s_batch = (uint8_t *)malloc(s_batch_size * s_record_size);
     if (!s_batch) {
         fprintf(stderr, "[flash_storage] malloc batch failed\n");
         pthread_mutex_unlock(&s_mutex);
@@ -369,8 +370,8 @@ int flash_storage_init(const flash_storage_config_t *cfg)
     s_total_flushes = 0;
     s_initialised   = 1;
 
-    printf("[flash_storage] Initialised. dir=%s batch=%u max_file=%u B max_files=%u min_conf=%.3f decimate_n=%u\n",
-           s_dir, s_batch_size, s_max_file_size, s_max_files, s_min_confidence, s_decimate_n);
+    printf("[flash_storage] Initialised. dir=%s prefix=%s rec_size=%u batch=%u max_file=%u B max_files=%u\n",
+           s_dir, s_file_prefix, s_record_size, s_batch_size, s_max_file_size, s_max_files);
 
     pthread_mutex_unlock(&s_mutex);
     return 0;
@@ -378,35 +379,14 @@ int flash_storage_init(const flash_storage_config_t *cfg)
 
 /* ------------------------------------------------------------------ */
 
-int flash_storage_record(int x, int y, int w, int h,
-                         float confidence,
-                         uint8_t class_id, uint8_t target_num,
-                         int frame_width, int frame_height)
+int flash_storage_write(const void *record)
 {
     if (!s_initialised) return -1;
-    if (confidence < s_min_confidence) return 0;  /* below threshold – silently drop */
-
-    /* Count-based decimation: save only every Nth qualifying detection. */
-    s_decimate_counter++;
-    if (s_decimate_counter < s_decimate_n)
-        return 0;
-    s_decimate_counter = 0;
+    if (!record) return -1;
 
     pthread_mutex_lock(&s_mutex);
 
-    flash_detection_record_t *r = &s_batch[s_batch_count];
-    memset(r, 0, sizeof(*r));
-    r->timestamp_us  = now_us_epoch();
-    r->x             = x;
-    r->y             = y;
-    r->w             = w;
-    r->h             = h;
-    r->confidence    = confidence;
-    r->class_id      = class_id;
-    r->target_num    = target_num;
-    r->frame_width   = (uint16_t)frame_width;
-    r->frame_height  = (uint16_t)frame_height;
-
+    memcpy(s_batch + s_batch_count * s_record_size, record, s_record_size);
     s_batch_count++;
 
     int ret = 0;
@@ -431,9 +411,9 @@ int flash_storage_flush(void)
 /* ------------------------------------------------------------------ */
 
 int flash_storage_read_file(const char *file_path,
-                            flash_detection_record_t *buf, size_t buf_len)
+                            void *buf, size_t rec_size, size_t buf_count)
 {
-    if (!file_path || !buf || buf_len == 0) return -1;
+    if (!file_path || !buf || rec_size == 0 || buf_count == 0) return -1;
 
     FILE *fp = fopen(file_path, "rb");
     if (!fp) {
@@ -450,9 +430,8 @@ int flash_storage_read_file(const char *file_path,
     }
 
     int count = 0;
-    while ((size_t)count < buf_len &&
-           fread(&buf[count], 1, sizeof(flash_detection_record_t), fp)
-               == sizeof(flash_detection_record_t))
+    while ((size_t)count < buf_count &&
+           fread((uint8_t *)buf + (size_t)count * rec_size, 1, rec_size, fp) == rec_size)
         count++;
 
     fclose(fp);

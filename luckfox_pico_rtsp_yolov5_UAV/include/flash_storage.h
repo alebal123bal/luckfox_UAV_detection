@@ -1,26 +1,35 @@
 /**
  * @file flash_storage.h
- * @brief Persistent detection log storage for Luckfox Pico (Buildroot Linux)
+ * @brief Generic batched binary log driver for embedded Linux (Luckfox Pico)
  *
- * Stores YOLOv5 detection records to the writable flash filesystem
- * (typically /userdata on Luckfox Pico).  Writes are batched in RAM to
- * minimise flash wear; a new binary file is created every time the current
- * one reaches FLASH_STORAGE_MAX_FILE_SIZE, and the oldest file is deleted
- * once FLASH_STORAGE_MAX_FILES is exceeded.
+ * Writes fixed-size, opaque binary records to the writable flash filesystem.
+ * Records are batched in RAM to minimise flash wear; a new binary file is
+ * created every time the current one reaches max_file_size, and the oldest
+ * file is deleted once max_files is exceeded.
+ *
+ * The driver is record-type agnostic: it operates on blobs of record_size
+ * bytes.  Domain-specific structs and filtering logic belong in the layer
+ * above (e.g. uav_detection_log).
  *
  * Binary file layout
  * ------------------
  *   [flash_file_header_t]
- *   [flash_detection_record_t] * N  (appended sequentially)
+ *   [record_size bytes] * N  (appended sequentially)
  *
  * Usage
  * -----
- *   flash_storage_config_t cfg = FLASH_STORAGE_DEFAULT_CONFIG;
+ *   flash_storage_config_t cfg = {
+ *       .dir          = "/userdata/my_logs",
+ *       .file_prefix  = "data",
+ *       .record_size  = sizeof(my_record_t),   // REQUIRED
+ *       .batch_size   = 32,
+ *       .max_file_size = 1 * 1024 * 1024,
+ *       .max_files    = 8,
+ *   };
  *   flash_storage_init(&cfg);
  *
- *   // inside detection loop:
- *   flash_storage_record(sX, sY, eX-sX, eY-sY,
- *                        det->prop, det->cls_id, i, width, height);
+ *   // inside event loop:
+ *   flash_storage_write(&my_record);
  *
  *   // on shutdown:
  *   flash_storage_deinit();
@@ -40,35 +49,20 @@ extern "C" {
 /*  Constants                                                           */
 /* ------------------------------------------------------------------ */
 
-/** Default directory on the writable /userdata partition (Luckfox Pico). */
-#define FLASH_STORAGE_DEFAULT_DIR     "/userdata/uav_detections"
-
-/** Default prefix for log filenames (prefix_YYYYMMDD_HHMMSS_<us>.bin). */
-#define FLASH_STORAGE_DEFAULT_FILE_PREFIX  "detections"
-
 /** Flush the RAM batch buffer to disk after this many records. */
-#define FLASH_STORAGE_DEFAULT_BATCH   32
+#define FLASH_STORAGE_DEFAULT_BATCH           32u
 
 /** Start a new log file once the current one reaches this size (bytes). */
-#define FLASH_STORAGE_DEFAULT_MAX_FILE_SIZE   (1 * 1024 * 1024)  /* 1 MiB */
+#define FLASH_STORAGE_DEFAULT_MAX_FILE_SIZE   (1u * 1024u * 1024u)  /* 1 MiB */
 
 /** Delete the oldest file once this many log files exist. */
-#define FLASH_STORAGE_DEFAULT_MAX_FILES  8
+#define FLASH_STORAGE_DEFAULT_MAX_FILES       8u
 
-/** Detections with confidence strictly below this value are silently dropped. */
-#define FLASH_STORAGE_DEFAULT_MIN_CONFIDENCE  0.6f
-
-/**
- * Save only 1 out of every N detections that pass the confidence filter.
- * Set to 1 to disable decimation (save every detection).
- */
-#define FLASH_STORAGE_DEFAULT_DECIMATE_N  5u
-
-/** Magic number written at the start of every log file ("UAVD"). */
-#define FLASH_STORAGE_MAGIC   0x55415644u
+/** Magic number written at the start of every log file ("UAVD" — kept for format compatibility). */
+#define FLASH_STORAGE_MAGIC    0x55415644u
 
 /** Binary format version. */
-#define FLASH_STORAGE_VERSION 1u
+#define FLASH_STORAGE_VERSION  1u
 
 /* ------------------------------------------------------------------ */
 /*  On-disk structures                                                  */
@@ -84,24 +78,6 @@ typedef struct {
     uint64_t created_us;     /**< File creation time (µs since epoch)  */
 } flash_file_header_t;
 
-/**
- * Single detection record stored on disk.
- * Size: 32 bytes (naturally aligned, no hidden compiler padding with pack(1)).
- */
-typedef struct {
-    uint64_t timestamp_us;   /**< µs since Unix epoch at detection time */
-    int32_t  x;              /**< Bounding box left edge (pixels)       */
-    int32_t  y;              /**< Bounding box top edge (pixels)        */
-    int32_t  w;              /**< Bounding box width (pixels)           */
-    int32_t  h;              /**< Bounding box height (pixels)          */
-    float    confidence;     /**< Detection confidence [0.0 – 1.0]      */
-    uint16_t frame_width;    /**< Source frame width (pixels)           */
-    uint16_t frame_height;   /**< Source frame height (pixels)          */
-    uint8_t  class_id;       /**< YOLOv5 class index                    */
-    uint8_t  target_num;     /**< Index within current frame            */
-    uint8_t  _pad[2];
-} flash_detection_record_t;
-
 #pragma pack(pop)
 
 /* ------------------------------------------------------------------ */
@@ -109,25 +85,13 @@ typedef struct {
 /* ------------------------------------------------------------------ */
 
 typedef struct {
-    const char *dir;          /**< Directory to store log files          */
-    const char *file_prefix;  /**< Filename prefix (prefix_YYYYMMDD_…bin) */
-    uint32_t    batch_size;   /**< Records to buffer in RAM before flush */
-    uint32_t    max_file_size;/**< Bytes per file before rotation        */
-    uint32_t    max_files;    /**< Maximum number of log files to keep   */
-    float       min_confidence;   /**< Drop detections below this score [0–1]    */
-    uint32_t    decimate_n;       /**< Save 1 out of every N detections (1=off)  */
+    const char *dir;           /**< Directory to store log files                    */
+    const char *file_prefix;   /**< Filename prefix (prefix_YYYYMMDD_…bin)          */
+    uint32_t    record_size;   /**< Size of one record in bytes — MUST be non-zero  */
+    uint32_t    batch_size;    /**< Records to buffer in RAM before flush            */
+    uint32_t    max_file_size; /**< Bytes per file before rotation                  */
+    uint32_t    max_files;     /**< Maximum number of log files to keep             */
 } flash_storage_config_t;
-
-/** Initialise a config struct with sensible defaults. */
-#define FLASH_STORAGE_DEFAULT_CONFIG { \
-    FLASH_STORAGE_DEFAULT_DIR,           \
-    FLASH_STORAGE_DEFAULT_FILE_PREFIX,   \
-    FLASH_STORAGE_DEFAULT_BATCH,         \
-    FLASH_STORAGE_DEFAULT_MAX_FILE_SIZE, \
-    FLASH_STORAGE_DEFAULT_MAX_FILES,     \
-    FLASH_STORAGE_DEFAULT_MIN_CONFIDENCE,\
-    FLASH_STORAGE_DEFAULT_DECIMATE_N     \
-}
 
 /* ------------------------------------------------------------------ */
 /*  Runtime statistics                                                  */
@@ -149,33 +113,24 @@ typedef struct {
  * @brief Initialise the storage subsystem.
  *
  * Creates the directory if it does not exist, opens (or creates) the
- * most recent log file, and loads the pending-write batch buffer.
+ * most recent log file, and allocates the write batch buffer.
+ * cfg->record_size must be > 0.
  *
- * @param cfg  Pointer to configuration, or NULL to use defaults.
- * @return  0 on success, -1 on error (errno is set).
+ * @param cfg  Pointer to configuration.  Must not be NULL.
+ * @return  0 on success, -1 on error.
  */
 int flash_storage_init(const flash_storage_config_t *cfg);
 
 /**
- * @brief Append one detection to the in-RAM batch buffer.
+ * @brief Append one record to the in-RAM batch buffer.
  *
- * Automatically flushes the buffer to disk when it reaches
- * cfg.batch_size, and rotates the file when it would exceed
- * cfg.max_file_size.
+ * Automatically flushes the buffer to disk when it reaches batch_size,
+ * and rotates the file when it would exceed max_file_size.
  *
- * @param x, y         Top-left corner of bounding box in pixels.
- * @param w, h         Width and height of bounding box in pixels.
- * @param confidence   Detection confidence [0.0 – 1.0].
- * @param class_id     YOLOv5 class index.
- * @param target_num   Index of this detection within the current frame.
- * @param frame_width  Width of the source frame in pixels.
- * @param frame_height Height of the source frame in pixels.
+ * @param record  Pointer to a record of exactly record_size bytes.
  * @return 0 on success, -1 on error.
  */
-int flash_storage_record(int x, int y, int w, int h,
-                         float confidence,
-                         uint8_t class_id, uint8_t target_num,
-                         int frame_width, int frame_height);
+int flash_storage_write(const void *record);
 
 /**
  * @brief Flush the in-RAM batch buffer to disk immediately.
@@ -184,15 +139,16 @@ int flash_storage_record(int x, int y, int w, int h,
 int flash_storage_flush(void);
 
 /**
- * @brief Read a specific log file into a caller-allocated array.
+ * @brief Read records from a specific log file into a caller-allocated buffer.
  *
  * @param file_path  Absolute path to a .bin log file.
- * @param buf        Array to fill with records.
- * @param buf_len    Maximum number of records that fit in buf.
+ * @param buf        Buffer to fill (must be at least rec_size * buf_count bytes).
+ * @param rec_size   Size of one record in bytes.
+ * @param buf_count  Maximum number of records to read.
  * @return Number of records read, or -1 on error.
  */
 int flash_storage_read_file(const char *file_path,
-                            flash_detection_record_t *buf, size_t buf_len);
+                            void *buf, size_t rec_size, size_t buf_count);
 
 /**
  * @brief Populate a stats struct with current runtime counters.
