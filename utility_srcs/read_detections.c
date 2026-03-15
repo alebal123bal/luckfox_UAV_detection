@@ -269,6 +269,75 @@ static long cmd_csv(const char *dir, const char *out_path)
     return total;
 }
 
+/** Export all logs to JSON. */
+static long cmd_json(const char *dir, const char *out_path)
+{
+    char **names = NULL;
+    int n = list_bin_files(dir, &names);
+    if (n <= 0) { printf("No log files found in %s\n", dir); return 0; }
+
+    int to_stdout = (strcmp(out_path, "-") == 0);
+    FILE *js = to_stdout ? stdout : fopen(out_path, "w");
+    if (!js) { perror(out_path); return -1; }
+
+    fprintf(js, "[\n");
+
+    long total = 0;
+    for (int i = 0; i < n; i++) {
+        FILE *fp = fopen(names[i], "rb");
+        if (!fp) { free(names[i]); continue; }
+
+        flash_file_header_t hdr;
+        if (fread(&hdr, 1, sizeof(hdr), fp) != sizeof(hdr) ||
+            hdr.magic != FLASH_STORAGE_MAGIC) {
+            fclose(fp); free(names[i]); continue;
+        }
+
+        flash_detection_record_t r;
+        while (fread(&r, 1, sizeof(r), fp) == sizeof(r)) {
+            char ts[48];
+            us_to_str(r.timestamp_us, ts, sizeof(ts));
+            if (total > 0)
+                fprintf(js, ",\n");
+            fprintf(js,
+                "  {\n"
+                "    \"timestamp_us\": %llu,\n"
+                "    \"timestamp\": \"%s\",\n"
+                "    \"x\": %d,\n"
+                "    \"y\": %d,\n"
+                "    \"w\": %d,\n"
+                "    \"h\": %d,\n"
+                "    \"confidence\": %.4f,\n"
+                "    \"class_id\": %u,\n"
+                "    \"target_num\": %u,\n"
+                "    \"frame_width\": %u,\n"
+                "    \"frame_height\": %u\n"
+                "  }",
+                (unsigned long long)r.timestamp_us,
+                ts,
+                r.x, r.y, r.w, r.h,
+                r.confidence,
+                (unsigned)r.class_id,
+                (unsigned)r.target_num,
+                (unsigned)r.frame_width,
+                (unsigned)r.frame_height);
+            total++;
+        }
+        fclose(fp);
+        free(names[i]);
+    }
+    free(names);
+
+    if (total > 0)
+        fprintf(js, "\n");
+    fprintf(js, "]\n");
+    if (!to_stdout) {
+        fclose(js);
+        printf("Exported %ld records to %s\n", total, out_path);
+    }
+    return total;
+}
+
 /** Print the last N records across all files. */
 static void cmd_tail(const char *dir, long want)
 {
@@ -331,6 +400,8 @@ static void usage(const char *prog)
         "  -d <dir>            Use <dir> instead of " DEFAULT_DIR "\n"
         "  -f <file> [file...] Print specific .bin file(s)\n"
         "  -c <out.csv>        Export all logs to a CSV file\n"
+        "  -j <out.json>       Export all logs to a JSON file\n"
+        "  --json              Print all logs as JSON to stdout\n"
         "  --tail <N>          Print the last N records (default 20)\n"
         "  --stats             Show per-file statistics only\n"
         "  -h, --help          This help\n"
@@ -347,7 +418,8 @@ static void usage(const char *prog)
 int main(int argc, char *argv[])
 {
     const char *dir     = DEFAULT_DIR;
-    const char *csv_out = NULL;
+    const char *csv_out  = NULL;
+    const char *json_out = NULL;
     int         do_stats = 0;
     long        tail_n  = 0;
 
@@ -368,6 +440,11 @@ int main(int argc, char *argv[])
         } else if (strcmp(argv[i], "-c") == 0) {
             if (++i >= argc) { fprintf(stderr, "-c requires output path\n"); return 1; }
             csv_out = argv[i];
+        } else if (strcmp(argv[i], "-j") == 0) {
+            if (++i >= argc) { fprintf(stderr, "-j requires output path\n"); return 1; }
+            json_out = argv[i];
+        } else if (strcmp(argv[i], "--json") == 0) {
+            json_out = "-";
         } else if (strcmp(argv[i], "-d") == 0) {
             if (++i >= argc) { fprintf(stderr, "-d requires directory\n"); return 1; }
             dir = argv[i];
@@ -396,6 +473,10 @@ int main(int argc, char *argv[])
 
     if (csv_out) {
         return (cmd_csv(dir, csv_out) < 0) ? 1 : 0;
+    }
+
+    if (json_out) {
+        return (cmd_json(dir, json_out) < 0) ? 1 : 0;
     }
 
     if (tail_n > 0) {
