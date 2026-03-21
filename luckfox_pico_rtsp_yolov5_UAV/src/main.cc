@@ -39,7 +39,7 @@ int height   = DISP_HEIGHT;
 // Box color and thickness
 #define BOX_COLOR 0x00FF00  // Green
 #define BOX_THICKNESS 4
-#define BOX_CONF_THRESHOLD 0.50f  // Only draw box if confidence >= 50%
+#define BOX_CONF_THRESHOLD 0.45f  // Only draw box if confidence >= 45%
 
 // Print on ssh
 #define PRINT_ON_SSH false
@@ -48,11 +48,12 @@ int height   = DISP_HEIGHT;
 #define PRINT_ON_UART false
 
 // Print timing 
-#define PRINT_TIMING false
+#define PRINT_TIMING true
 
 // model size
-int model_width = 640;
-int model_height = 640;	
+#define MODEL_SIZE 512
+int model_width = MODEL_SIZE;
+int model_height = MODEL_SIZE;	
 float scale ;
 int leftPadding ;
 int topPadding  ;
@@ -86,7 +87,7 @@ int main(int argc, char *argv[]) {
 	rknn_app_context_t rknn_app_ctx;	
 	object_detect_result_list od_results;
     int ret;
-	const char *model_path = "./model/yolov5.rknn";
+	const char *model_path = "./model/yolov5_512.rknn";
     memset(&rknn_app_ctx, 0, sizeof(rknn_app_context_t));	
 	init_yolov5_model(model_path, &rknn_app_ctx);
 	printf("init rknn model success!\n");
@@ -199,7 +200,7 @@ int main(int argc, char *argv[]) {
 		rga_letterbox_nv12_to_rknn(
 			vi_data, width, height,
 			&rknn_app_ctx,
-			640, 640,
+			MODEL_SIZE, MODEL_SIZE,
 			&scale, &leftPadding, &topPadding
 		);
 
