@@ -1,6 +1,6 @@
 # Luckfox Pico UAV Detection System
 
-![Live UAV Detection](gifs/live_detection.gif)
+![Live UAV Detection](gifs/fast_30_fps_detection.gif)
 
 ![PicoClaw AI Assistant](gifs/picoclaw_and_Yolo.gif)
 
@@ -20,7 +20,7 @@ This project is intended for **educational and research purposes only**. Users a
 
 ## Overview
 
-This system achieves **blazing fast 20 FPS** real-time UAV detection on the Luckfox Pico Pro/Max boards (RV1106G2/3) using hardware-accelerated RGA (Raster Graphic Acceleration) operations, demonstrating highly efficient edge AI deployment for aerial object detection.
+This system achieves **blazing fast 30 FPS** real-time UAV detection on the Luckfox Pico Pro/Max boards (RV1106G2/3) using hardware-accelerated RGA (Raster Graphic Acceleration) operations, demonstrating highly efficient edge AI deployment for aerial object detection.
 
 ### Performance Breakthrough
 
@@ -35,7 +35,7 @@ This optimization provides a **19x performance improvement** for raster operatio
 
 ### Features
 
-- **20 FPS** real-time RTSP video streaming with UAV detection
+- **30 FPS** real-time RTSP video streaming with UAV detection
 - YOLOv5-based detection using RKNN neural network acceleration
 - Ultra-low latency video processing (~40ms)
 - **Zero OpenCV dependencies** - pure RGA hardware acceleration
@@ -156,7 +156,7 @@ ffplay -fflags nobuffer+fastseek -flags low_delay -framedrop -sync ext \
 - **RTSP URL**: Default `rtsp://172.32.0.93/live/0` (update in scripts as needed)
 - **Model**: YOLOv5 model located in `luckfox_pico_rtsp_yolov5_UAV/model/`
 - **Input Resolution**: 720x480
-- **Inference Resolution**: 640x640
+- **Inference Resolution**: 512x512 (active), 640x640 (available)
 
 ## Model Training
 
@@ -167,9 +167,18 @@ https://github.com/airockchip/yolov5.git
 
 and train from there.
 
-### Model Conversion
+### Available Models
 
-The already converted RKNN model is provided.
+Two pre-converted RKNN models are provided in `luckfox_pico_rtsp_yolov5_UAV/model/`:
+
+| File | Input size | Notes |
+|---|---|---|
+| `yolov5_512.rknn` | 512×512 | **Active** — faster inference |
+| `yolov5.rknn` | 640×640 | Higher resolution fallback |
+
+To switch models, update `MODEL_SIZE` and `model_path` in `main.cc`.
+
+### Model Conversion
 
 If you have trouble converting the model from .pt to .onnx and then to .rknn, refer
 to the excellent LuckFox guide:
@@ -214,10 +223,10 @@ luckfox_UAV_detection/
 
 ## Performance
 
-- **FPS**: 20 FPS (inference + streaming)
-- **Latency**: ~40ms end-to-end
+- **FPS**: 30 FPS (inference + streaming)
+- **Latency**: ~30ms end-to-end
 - **Platform**: Luckfox Pico Pro/Max (RV1106G2/3)
-- **Speedup**: 19x faster image preprocessing vs OpenCV CPU-based operations; this means 20FPS versus 7FPS
+- **Speedup**: 19x faster image preprocessing vs OpenCV CPU-based operations; this means 30FPS versus 7FPS
 - **Optimization**: Pure RGA hardware acceleration, zero OpenCV dependencies
 
 ### RAM Usage
@@ -289,7 +298,7 @@ This enables:
 ## Limitations
 
 - Detection accuracy depends on lighting conditions, distance, and UAV size
-- Performance optimized for Luckfox Pico Max (20 FPS achieved)
+- Performance optimized for Luckfox Pico Max (30 FPS achieved)
 
 ## Troubleshooting
 
@@ -365,4 +374,4 @@ https://www.linkedin.com/in/alessandro-balzan-b024a9250/
 
 ---
 
-**Last Updated**: February 2026
+**Last Updated**: March 2026
