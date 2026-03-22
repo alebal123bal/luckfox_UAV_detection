@@ -37,7 +37,7 @@ This optimization provides a **19x performance improvement** for raster operatio
 
 - **30 FPS** real-time RTSP video streaming with UAV detection
 - YOLOv5-based detection using RKNN neural network acceleration
-- Ultra-low latency video processing (~40ms)
+- Ultra-low latency video processing (~25ms)
 - **Zero OpenCV dependencies** - pure RGA hardware acceleration
 - **MAVLink telemetry streaming** - detection data streamed via UART using MAVLink protocol for integration with autopilots and ground control stations
 - Runs entirely on embedded hardware
